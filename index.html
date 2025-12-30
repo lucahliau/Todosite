@@ -111,7 +111,7 @@
                                             <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
                                             <div class="flex items-center space-x-1.5 bg-slate-100 px-2 py-1 rounded-md border border-slate-200/50">
                                                 <div class="w-1.5 h-1.5 rounded-full" :class="todo.importance == 3 ? 'bg-rose-500' : (todo.importance == 2 ? 'bg-amber-400' : 'bg-emerald-500')"></div>
-                                                <span class="text-[9px] font-black uppercase text-slate-400 tracking-tight">Priority</span>
+                                                <span class="text-[9px] font-black uppercase text-slate-400 tracking-tight">Importance</span>
                                             </div>
                                         </div>
                                     </div>
@@ -145,7 +145,7 @@
                         
                         <div class="flex flex-wrap gap-3 mb-8">
                             <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Category</label><input type="text" x-model="activeTodo.category" @blur="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"></div>
-                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Priority</label><select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></div>
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Importance</label><select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></div>
                         </div>
 
                         <div class="mb-8">
