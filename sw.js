@@ -1,4 +1,4 @@
-const CACHE_NAME = 'command-center-v12'; // Bumped version
+const CACHE_NAME = 'command-center-v13'; 
 
 const STATIC_ASSETS = [
   '/',
