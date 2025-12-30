@@ -1,4 +1,4 @@
-const CACHE_NAME = 'command-center-v5';
+const CACHE_NAME = 'command-center-v7';
 const ASSETS = [
   '/',
   '/index.html',

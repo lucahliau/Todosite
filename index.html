@@ -18,14 +18,14 @@
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         [x-cloak] { display: none !important; }
         
-        /* Markdown Rendering */
+        /* Markdown Styling */
         .markdown-content p { margin-bottom: 0.5rem; }
         .markdown-content p:last-child { margin-bottom: 0; }
-        .markdown-content a { color: #3b82f6; text-decoration: underline; font-weight: 500; }
+        .markdown-content a { color: #3b82f6; text-decoration: underline; font-weight: 500; pointer-events: auto !important; }
+        .markdown-content ul { list-style-type: disc; padding-left: 1rem; margin-bottom: 0.5rem; }
+        .markdown-content strong { font-weight: 700; color: #334155; }
         
-        /* Forces description to 1 line in main view */
         .line-clamp-1 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
-        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
         @keyframes pulse-green {
@@ -57,7 +57,6 @@
         <section class="mb-8 space-y-3">
             <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm transition-all focus-within:ring-4 focus-within:ring-black/5">
                 <input type="text" x-model="newTodo" @focus="inputFocused = true" placeholder="Add task... #tag" class="w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate-200">
-                
                 <div x-show="newTodo.length > 0" x-collapse>
                     <textarea x-model="newDescription" placeholder="Description (markdown)..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
                     <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
@@ -70,7 +69,6 @@
                     </div>
                 </div>
             </div>
-
             <div x-show="inputFocused && uniqueCategories.length > 0" x-transition class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 px-1">
                 <template x-for="cat in uniqueCategories" :key="cat">
                     <button @click="applyCategory(cat)" class="px-3 py-1.5 rounded-full bg-white border border-slate-100 shadow-sm text-[11px] font-bold text-slate-600 whitespace-nowrap active:bg-slate-100 transition-colors" x-text="'#' + cat"></button>
@@ -97,7 +95,6 @@
         </div>
 
         <main class="space-y-12">
-            
             <div x-show="filterStatus !== 'completed'" class="space-y-6">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
                 <template x-for="todo in activeTasks" :key="todo.id">
@@ -110,12 +107,7 @@
                                     </button>
                                     <div class="flex-1 cursor-pointer min-w-0" @click="openReadMode(todo)">
                                         <h3 class="font-bold text-slate-800 text-[16px]" x-text="todo.task"></h3>
-                                        
-                                        <div x-show="todo.description" 
-                                             class="markdown-content text-sm text-slate-400 mt-1 line-clamp-1 pointer-events-none" 
-                                             x-html="marked.parse(todo.description || '')">
-                                        </div>
-
+                                        <div x-show="todo.description" class="markdown-content text-sm text-slate-400 mt-1 line-clamp-1 pointer-events-none" x-html="marked.parse(todo.description || '')"></div>
                                         <div class="flex items-center space-x-2 mt-2">
                                             <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
                                             <span x-show="todo.importance == 3" class="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
@@ -156,16 +148,30 @@
                 <div x-show="activeTodo" 
                      x-transition:enter="transition ease-out duration-300 transform translate-y-0" 
                      x-transition:enter-start="translate-y-full" 
-                     class="relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar">
+                     class="relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar flex flex-col">
                     
-                    <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-8 cursor-pointer" @click="closeReadMode()"></div>
+                    <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" @click="closeReadMode()"></div>
                     
-                    <div x-if="activeTodo">
+                    <div x-if="activeTodo" class="flex-1 overflow-y-auto">
                         <input type="text" x-model="activeTodo.task" @blur="updateMainTask(activeTodo)" class="w-full text-3xl font-bold text-slate-900 border-none p-0 focus:ring-0 mb-6 bg-transparent placeholder:text-slate-300">
                         
                         <div class="mb-8">
-                             <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-3">Context</h4>
-                             <textarea x-model="activeTodo.description" @blur="updateMainTask(activeTodo)" class="w-full text-[16px] text-slate-600 leading-relaxed border-none p-0 focus:ring-0 resize-none bg-transparent placeholder:text-slate-300 h-32" placeholder="Add description (Markdown supported)..."></textarea>
+                             <div class="flex justify-between items-center mb-3">
+                                 <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Context</h4>
+                                 <button @click="editingDesc = !editingDesc" class="text-[10px] font-bold uppercase text-blue-500 tracking-wider" x-text="editingDesc ? 'Done' : 'Edit'"></button>
+                             </div>
+
+                             <div x-show="!editingDesc" 
+                                  @click="editingDesc = true" 
+                                  class="markdown-content text-[16px] text-slate-600 leading-relaxed min-h-[40px] cursor-pointer hover:bg-slate-50 p-2 -ml-2 rounded-lg transition-colors border border-transparent hover:border-slate-100"
+                                  x-html="activeTodo.description ? marked.parse(activeTodo.description) : '<span class=\'text-slate-300 italic\'>Tap to add description...</span>'">
+                             </div>
+
+                             <textarea x-show="editingDesc" 
+                                       x-model="activeTodo.description" 
+                                       @blur="updateMainTask(activeTodo)" 
+                                       class="w-full h-40 bg-slate-50 border-slate-200 rounded-xl p-4 text-sm focus:ring-black focus:border-black" 
+                                       placeholder="Type markdown here..."></textarea>
                         </div>
                         
                         <div class="pt-8 border-t border-slate-100">
@@ -178,7 +184,7 @@
                                             <input type="checkbox" x-model="sub.done" @change="updateSubtasks(activeTodo)" class="mt-1 w-5 h-5 rounded border-slate-300 text-black focus:ring-black">
                                             
                                             <div class="flex-1 space-y-2">
-                                                <input type="text" x-model="sub.text" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0 placeholder:text-slate-400">
+                                                <input type="text" x-model="sub.text" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0">
                                                 <input type="text" x-model="sub.description" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-xs text-slate-400 focus:ring-0 placeholder:text-slate-300" placeholder="Add details...">
                                             </div>
 
@@ -190,15 +196,15 @@
                                 </template>
                              </div>
 
-                             <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                                <p class="text-[10px] font-bold uppercase text-slate-300 mb-2">New Step</p>
-                                <input type="text" x-model="tempSubTitle" @keydown.enter="$refs.descInput.focus()" placeholder="Title..." class="w-full border-none p-0 text-sm font-bold mb-2 focus:ring-0">
-                                <input x-ref="descInput" type="text" x-model="tempSubDesc" @keydown.enter="addRichSubtask(activeTodo)" placeholder="Description (optional)..." class="w-full border-none p-0 text-xs text-slate-500 focus:ring-0">
+                             <div class="bg-white border-2 border-slate-100 rounded-2xl p-4 shadow-sm hover:border-slate-200 transition-colors">
+                                <p class="text-[10px] font-bold uppercase text-slate-300 mb-2">Add New Step</p>
+                                <input type="text" x-model="tempSubTitle" @keydown.enter="$refs.descInput.focus()" placeholder="Step title..." class="w-full border-none p-0 text-sm font-bold mb-2 focus:ring-0 placeholder:text-slate-300">
+                                <input x-ref="descInput" type="text" x-model="tempSubDesc" @keydown.enter="addRichSubtask(activeTodo)" placeholder="Description (optional)..." class="w-full border-none p-0 text-xs text-slate-500 focus:ring-0 placeholder:text-slate-300">
                                 <button @click="addRichSubtask(activeTodo)" class="w-full mt-3 bg-black text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest active:scale-95 transition-all">Add Step</button>
                              </div>
                         </div>
-
-                        <button @click="closeReadMode()" class="w-full mt-8 bg-slate-900 text-white py-4 rounded-2xl font-bold active:scale-95">Close View</button>
+                        
+                        <button @click="closeReadMode()" class="w-full mt-8 bg-slate-100 text-slate-500 py-4 rounded-2xl font-bold active:scale-95 mb-10">Close View</button>
                     </div>
                 </div>
             </div>
@@ -224,6 +230,9 @@
                 inputFocused: false,
                 filterStatus: 'all',
                 sortBy: 'newest',
+                
+                // UI States
+                editingDesc: false,
                 tempSubTitle: '',
                 tempSubDesc: '',
 
@@ -237,12 +246,23 @@
                     this.syncPending();
                 },
 
+                // Helper to ensure data integrity
+                sanitizeTodo(t) {
+                    return {
+                        ...t,
+                        isPending: t.isPending || false,
+                        description: t.description || '',
+                        subtasks: Array.isArray(t.subtasks) ? t.subtasks : []
+                    };
+                },
+
                 async fetchTodos() {
                     if (!this.isOnline) return;
                     const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
                     if (!error) {
                         const pendingTasks = this.todos.filter(t => t.isPending);
-                        const serverTasks = data.map(t => ({ ...t, isPending: false }));
+                        // Sanitize incoming data immediately
+                        const serverTasks = data.map(t => this.sanitizeTodo(t));
                         this.todos = [...pendingTasks, ...serverTasks];
                         localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                     }
@@ -260,8 +280,14 @@
 
                     const newObj = {
                         id: 'temp-' + Date.now(),
-                        task: taskText, description: this.newDescription, category: category,
-                        importance: parseInt(this.newImportance), is_completed: false, isPending: true, created_at: new Date().toISOString(), subtasks: []
+                        task: taskText, 
+                        description: this.newDescription || '', 
+                        category: category,
+                        importance: parseInt(this.newImportance), 
+                        is_completed: false, 
+                        isPending: true, 
+                        created_at: new Date().toISOString(), 
+                        subtasks: []
                     };
 
                     this.todos.unshift(newObj);
@@ -280,7 +306,8 @@
                         }]).select();
                         if (!error) {
                             this.todos = this.todos.filter(t => t.id !== task.id);
-                            this.todos.unshift({ ...data[0], isPending: false });
+                            // Sanitize the new record from DB
+                            this.todos.unshift(this.sanitizeTodo(data[0]));
                             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                         }
                     }
@@ -302,30 +329,34 @@
                 },
 
                 openReadMode(todo) { 
+                    // Sanitize on open just in case
+                    if (!todo.subtasks) todo.subtasks = [];
+                    if (!todo.description) todo.description = '';
+                    
                     this.activeTodo = todo; 
                     this.tempSubTitle = ''; 
                     this.tempSubDesc = '';
+                    this.editingDesc = false; // Reset to view mode
                     document.body.style.overflow = 'hidden'; 
                 },
+                
                 closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; },
                 
-                // --- FIXED ADD/UPDATE LOGIC ---
                 async addRichSubtask(todo) {
                     if (!this.tempSubTitle.trim()) return;
-                    if (!todo.subtasks) todo.subtasks = [];
                     
-                    // 1. Push new subtask
+                    // Critical: Ensure array exists
+                    if (!Array.isArray(todo.subtasks)) todo.subtasks = [];
+                    
                     todo.subtasks.push({ 
                         text: this.tempSubTitle, 
                         description: this.tempSubDesc, 
                         done: false 
                     });
                     
-                    // 2. Clear inputs
                     this.tempSubTitle = '';
                     this.tempSubDesc = '';
                     
-                    // 3. FORCE UPDATE
                     await this.updateSubtasks(todo);
                 },
                 
@@ -335,10 +366,7 @@
                 },
 
                 async updateSubtasks(todo) {
-                     // Force Alpine to detect deep change by re-assigning todos reference if needed, 
-                     // but localStorage save is usually enough for data persistence.
                      localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                     
                      if (this.isOnline && !todo.isPending) {
                          await supabaseClient.from('todos').update({ subtasks: todo.subtasks }).eq('id', todo.id);
                      }
