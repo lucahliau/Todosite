@@ -257,8 +257,14 @@
     </div>
 
     <script>
-        const supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
+    // 1. REGISTER SERVICE WORKER WITH LOGGING
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW Registered!', reg))
+            .catch(err => console.error('SW Failed:', err));
+    }
 
+    const supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
         }

@@ -1,29 +1,26 @@
-const CACHE_NAME = 'command-center-v9'; // Bumped version
 
-// We list EXACTLY the same URLs used in index.html
-const ASSETS = [
+const CACHE_NAME = 'command-center-v10'; // Bump version
+
+// CRITICAL: Only cache the files that act as the "Skeleton" of the app.
+// We removed config.js and the CDNs from here to prevent installation failure.
+const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/config.js',
-  '/icon.png', // Make sure you actually have this file
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
-  'https://unpkg.com/@supabase/supabase-js@2',
-  'https://cdn.jsdelivr.net/npm/marked/marked.min.js'
+  '/icon.png'
 ];
 
-// 1. INSTALL: Download all assets immediately
+// 1. INSTALL: Cache only the essentials
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Force this SW to become active immediately
+  self.skipWaiting(); // Force activation
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching all assets...');
-      return cache.addAll(ASSETS);
+      console.log('[SW] Caching App Shell');
+      return cache.addAll(STATIC_ASSETS);
     })
   );
 });
 
-// 2. ACTIVATE: Clean up old caches (v1-v8) to save space
+// 2. ACTIVATE: Clean up old versions
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keyList) => {
@@ -37,42 +34,42 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim(); // Take control of all pages immediately
+  self.clients.claim();
 });
 
-// 3. FETCH: The "Offline First" Strategy
+// 3. FETCH: The "Stale-While-Revalidate" / Dynamic Strategy
 self.addEventListener('fetch', (event) => {
-  // We only cache GET requests (not Supabase writes/updates)
+  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // A. If found in cache, return it (Instant load)
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      // B. If not in cache, fetch from internet
-      return fetch(event.request)
+      // STRATEGY: Return cache if available, but ALSO fetch update in background
+      // This ensures you see content instantly, but the cache stays fresh.
+      
+      const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
-          // Check if valid response
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
+          // If the network works, update the cache
+          if (networkResponse && networkResponse.status === 200) {
+             const responseClone = networkResponse.clone();
+             caches.open(CACHE_NAME).then((cache) => {
+               cache.put(event.request, responseClone);
+             });
           }
-
-          // C. Cache the new file for next time (Dynamic Caching)
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-
           return networkResponse;
         })
         .catch(() => {
-          // D. If offline and not in cache, we're stuck. 
-          // Usually we just return nothing, or a generic offline.html if you had one.
-          console.log('[SW] Offline and item not in cache:', event.request.url);
+           // If network fails, do nothing (we rely on cachedResponse)
+           console.log('[SW] Network failed for:', event.request.url);
         });
+
+      // If we found it in cache, return it immediately!
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      
+      // If not in cache, wait for the network
+      return fetchPromise;
     })
   );
 });
