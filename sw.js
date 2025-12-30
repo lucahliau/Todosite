@@ -1,27 +1,23 @@
-const CACHE_NAME = 'todo-v15'; // Bumped version
+const CACHE_NAME = 'todo-v16'; 
 
-// These files are required for the app to work offline
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/config.js',
-  '/icon.png' // Explicitly added back
+  '/config.js'
 ];
 
-// 1. INSTALL: Pre-cache the shell
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Using map/add instead of addAll to prevent one missing file from breaking the whole SW
-      return Promise.allSettled(
-        STATIC_ASSETS.map(asset => cache.add(asset))
-      );
+      return Promise.allSettled([
+        ...STATIC_ASSETS.map(asset => cache.add(asset)),
+        cache.add('/icon.png?v=1') // Force fresh pull
+      ]);
     })
   );
 });
 
-// 2. ACTIVATE: Cleanup old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
@@ -31,10 +27,8 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 3. FETCH: Stale-While-Revalidate
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
@@ -44,7 +38,6 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       }).catch(() => null);
-
       return cachedResponse || fetchPromise;
     })
   );
