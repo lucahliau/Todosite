@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Command Center</title>
+    <title>To do</title>
     
     <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Focus%22,%22short_name%22:%22Focus%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#000000%22}">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,10 +15,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="icon.png">
 
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Command Center">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="To do">
+    
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         [x-cloak] { display: none !important; }
@@ -39,6 +39,9 @@
             100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
         .pulse-online { animation: pulse-green 2s infinite; }
+        
+        /* Prevents scrolling chaining on iOS */
+        .overscroll-contain { overscroll-behavior-y: contain; }
     </style>
 </head>
 
@@ -47,22 +50,22 @@
     <div x-data="todoApp()" x-init="init()" x-cloak class="max-w-3xl mx-auto px-5 pt-8">
         
         <header class="mb-8 flex justify-between items-start">
-    <div>
-        <h1 class="text-3xl font-extrabold tracking-tight">To do</h1>
-        
-        <div class="flex items-center space-x-2 mt-1">
-            <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
-                <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
-                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">To do</h1>
+                
+                <div class="flex items-center space-x-2 mt-1">
+                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
+                        <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
+                    </div>
+                    
+                    <span class="text-slate-300 text-xs">•</span>
+                    
+                    <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })"></p>
+                </div>
             </div>
-            
-            <span class="text-slate-300 text-xs">•</span>
-            
-            <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })"></p>
-        </div>
-    </div>
-    <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
-</header>
+            <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
+        </header>
 
         <section class="mb-8 space-y-3">
             <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm transition-all focus-within:ring-4 focus-within:ring-black/5">
@@ -125,10 +128,24 @@
                                         </div>
                                     </div>
                                 </div>
-                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100">
+                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 transition-all">
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg>
                                 </button>
                             </div>
+                        </div>
+                        <div x-show="todo.subtasks?.length > 0" class="ml-10 space-y-2 border-l-2 border-slate-100 pl-4">
+                            <template x-for="(sub, idx) in (todo.subtasks || [])" :key="idx">
+                                <div class="flex items-start group relative">
+                                    <div class="absolute -left-[21px] top-3 w-3 h-[2px] bg-slate-100"></div>
+                                    <button @click="sub.done = !sub.done; updateSubtasks(todo)" class="mt-1 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center bg-white transition-colors" :class="sub.done ? 'bg-slate-400 border-slate-400' : 'border-slate-300'">
+                                        <svg x-show="sub.done" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    <div class="ml-3 flex-1">
+                                        <p class="text-sm font-medium text-slate-600" :class="sub.done ? 'line-through opacity-50' : ''" x-text="sub.text"></p>
+                                        <div x-show="sub.description" class="markdown-content text-xs text-slate-400 mt-0.5 line-clamp-1" :class="sub.done ? 'line-through opacity-40' : ''" x-html="marked.parse(sub.description || '')"></div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </template>
@@ -137,14 +154,32 @@
             <div x-show="filterStatus !== 'active' && completedTasks.length > 0" class="space-y-4 pt-10 border-t border-slate-100">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
                 <template x-for="todo in completedTasks" :key="todo.id">
-                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 opacity-40 grayscale hover:grayscale-0 transition-all">
-                        <div class="flex items-start space-x-4">
-                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black flex items-center justify-center transition-all">
-                                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </button>
-                            <div class="flex-1 cursor-pointer" @click="openReadMode(todo)">
-                                <h3 class="font-bold text-slate-500 line-through" x-text="todo.task"></h3>
+                    <div class="space-y-2 opacity-60 grayscale hover:grayscale-0 transition-all">
+                        <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                            <div class="flex items-start space-x-4">
+                                <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black flex items-center justify-center transition-all">
+                                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </button>
+                                <div class="flex-1 cursor-pointer" @click="openReadMode(todo)">
+                                    <h3 class="font-bold text-slate-500 line-through" x-text="todo.task"></h3>
+                                </div>
+                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg>
+                                </button>
                             </div>
+                        </div>
+                        <div x-show="todo.subtasks?.length > 0" class="ml-10 space-y-2 border-l-2 border-slate-100 pl-4">
+                            <template x-for="(sub, idx) in (todo.subtasks || [])" :key="idx">
+                                <div class="flex items-start relative">
+                                    <div class="absolute -left-[21px] top-3 w-3 h-[2px] bg-slate-100"></div>
+                                    <div class="mt-1 w-4 h-4 rounded border border-slate-300 flex-shrink-0 flex items-center justify-center bg-slate-100">
+                                        <svg x-show="sub.done" class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <p class="text-sm font-medium text-slate-400 line-through" x-text="sub.text"></p>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </template>
@@ -158,7 +193,7 @@
                 <div x-show="activeTodo" 
                      x-transition:enter="transition ease-out duration-300 transform translate-y-0" 
                      x-transition:enter-start="translate-y-full" 
-                     class="relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar flex flex-col">
+                     class="overscroll-contain relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar flex flex-col">
                     
                     <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" @click="closeReadMode()"></div>
                     
@@ -271,7 +306,6 @@
                     const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
                     if (!error) {
                         const pendingTasks = this.todos.filter(t => t.isPending);
-                        // Sanitize incoming data immediately
                         const serverTasks = data.map(t => this.sanitizeTodo(t));
                         this.todos = [...pendingTasks, ...serverTasks];
                         localStorage.setItem('todo_cache', JSON.stringify(this.todos));
@@ -316,7 +350,6 @@
                         }]).select();
                         if (!error) {
                             this.todos = this.todos.filter(t => t.id !== task.id);
-                            // Sanitize the new record from DB
                             this.todos.unshift(this.sanitizeTodo(data[0]));
                             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                         }
@@ -339,23 +372,25 @@
                 },
 
                 openReadMode(todo) { 
-                    // Sanitize on open just in case
                     if (!todo.subtasks) todo.subtasks = [];
                     if (!todo.description) todo.description = '';
                     
                     this.activeTodo = todo; 
                     this.tempSubTitle = ''; 
                     this.tempSubDesc = '';
-                    this.editingDesc = false; // Reset to view mode
+                    this.editingDesc = false; 
+                    // LOCK SCROLL ON BODY
                     document.body.style.overflow = 'hidden'; 
                 },
                 
-                closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; },
+                closeReadMode() { 
+                    this.activeTodo = null; 
+                    // UNLOCK SCROLL
+                    document.body.style.overflow = 'auto'; 
+                },
                 
                 async addRichSubtask(todo) {
                     if (!this.tempSubTitle.trim()) return;
-                    
-                    // Critical: Ensure array exists
                     if (!Array.isArray(todo.subtasks)) todo.subtasks = [];
                     
                     todo.subtasks.push({ 
@@ -406,9 +441,11 @@
                 },
 
                 async deleteTodo(id) {
-                    this.todos = this.todos.filter(t => t.id !== id);
-                    localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                    if (this.isOnline && !id.toString().startsWith('temp')) await supabaseClient.from('todos').delete().eq('id', id);
+                    if (confirm("Are you sure you want to delete this task?")) {
+                        this.todos = this.todos.filter(t => t.id !== id);
+                        localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                        if (this.isOnline && !id.toString().startsWith('temp')) await supabaseClient.from('todos').delete().eq('id', id);
+                    }
                 }
             }
         }
