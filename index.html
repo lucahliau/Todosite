@@ -259,6 +259,12 @@
                 tempSubDesc: '',
 
                 async init() {
+                    marked.setOptions({
+        gfm: true,
+        breaks: true,
+        mangle: false,
+        headerIds: false
+    });
                     window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); });
                     window.addEventListener('offline', () => { this.isOnline = false; });
                     const cached = localStorage.getItem('todo_cache');
