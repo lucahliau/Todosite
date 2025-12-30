@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>To do</title>
     
-    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Focus%22,%22short_name%22:%22Focus%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#000000%22}">
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22To%20do%22,%22short_name%22:%22To%20do%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#000000%22}">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="To do">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -13,19 +18,12 @@
     <script src="config.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="apple-touch-icon" href="icon.png">
-
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="To do">
     
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         [x-cloak] { display: none !important; }
         .markdown-content p { margin-bottom: 0.5rem; }
-        .markdown-content p:last-child { margin-bottom: 0; }
-        .markdown-content a { color: #3b82f6; text-decoration: underline; font-weight: 500; pointer-events: auto !important; }
-        .markdown-content ul { list-style-type: disc; padding-left: 1rem; margin-bottom: 0.5rem; }
+        .markdown-content a { color: #3b82f6; text-decoration: underline; pointer-events: auto !important; }
         .line-clamp-1 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .overscroll-contain { overscroll-behavior-y: contain; }
@@ -56,7 +54,6 @@
     </div>
 
     <div x-cloak class="max-w-3xl mx-auto px-5 pt-8">
-        
         <header class="mb-8 flex justify-between items-start">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">To do</h1>
@@ -74,7 +71,7 @@
 
         <section class="mb-8 space-y-3">
             <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm transition-all focus-within:ring-4 focus-within:ring-black/5">
-                <input type="text" x-model="newTodo" @focus="inputFocused = true" placeholder="Add task... #tag" class="w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate-200">
+                <input type="text" x-model="newTodo" @focus="inputFocused = true" placeholder="Add task... #tag" class="w-full bg-transparent text-lg font-bold outline-none">
                 <div x-show="newTodo.length > 0" x-collapse>
                     <textarea x-model="newDescription" placeholder="Description..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
                     <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
@@ -127,20 +124,17 @@
                                     <button @click="sub.done = !sub.done; updateSubtasks(todo)" class="mt-1 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors" :class="sub.done ? 'bg-slate-400 border-slate-400' : 'bg-white border-slate-300'">
                                         <svg x-show="sub.done" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                     </button>
-                                    <div class="ml-3 flex-1">
-                                        <p class="text-sm font-medium text-slate-600" :class="sub.done ? 'line-through opacity-50' : ''" x-text="sub.text"></p>
-                                    </div>
+                                    <p class="ml-3 text-sm font-medium text-slate-600 flex-1" :class="sub.done ? 'line-through opacity-50' : ''" x-text="sub.text"></p>
                                 </div>
                             </template>
                         </div>
                     </div>
                 </template>
             </div>
-
             <div x-show="filterStatus !== 'active' && completedTasks.length > 0" class="space-y-4 pt-10 border-t border-slate-100">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
                 <template x-for="todo in completedTasks" :key="todo.id">
-                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm opacity-50 grayscale hover:grayscale-0 transition-all">
+                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm opacity-50 grayscale transition-all">
                         <div class="flex items-start space-x-4">
                             <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black flex items-center justify-center transition-all"><svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                             <h3 class="font-bold text-slate-500 line-through flex-1" x-text="todo.task"></h3>
@@ -154,55 +148,33 @@
         <template x-teleport="body">
             <div x-show="activeTodo" class="fixed inset-0 z-50 flex flex-col justify-end">
                 <div x-show="activeTodo" x-transition.opacity @click="closeReadMode()" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-                
                 <div x-show="activeTodo" x-transition:enter="transition ease-out duration-300 transform translate-y-0" x-transition:enter-start="translate-y-full" class="overscroll-contain relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar flex flex-col">
                     <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" @click="closeReadMode()"></div>
-                    
                     <div x-if="activeTodo" class="flex-1 overflow-y-auto">
                         <input type="text" x-model="activeTodo.task" @blur="updateMainTask(activeTodo)" class="w-full text-3xl font-bold text-slate-900 border-none p-0 focus:ring-0 mb-6 bg-transparent">
-                        
                         <div class="flex flex-wrap gap-3 mb-8">
-                            <div class="flex-1 min-w-[140px]">
-                                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Category</label>
-                                <input type="text" x-model="activeTodo.category" @blur="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700 focus:ring-black">
-                            </div>
-                            <div class="flex-1 min-w-[140px]">
-                                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Priority</label>
-                                <select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700 focus:ring-black">
-                                    <option value="1">Low</option>
-                                    <option value="2">Medium</option>
-                                    <option value="3">High</option>
-                                </select>
-                            </div>
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Category</label><input type="text" x-model="activeTodo.category" @blur="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700 focus:ring-black"></div>
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Priority</label><select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700 focus:ring-black"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></div>
                         </div>
-
                         <div class="mb-8">
                              <div class="flex justify-between items-center mb-3"><h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Context</h4><button @click="editingDesc = !editingDesc" class="text-[10px] font-bold uppercase text-blue-500 tracking-wider" x-text="editingDesc ? 'Done' : 'Edit'"></button></div>
                              <div x-show="!editingDesc" @click="editingDesc = true" class="markdown-content text-[16px] text-slate-600 leading-relaxed min-h-[40px] cursor-pointer" x-html="activeTodo.description ? marked.parse(activeTodo.description) : '<span class=\'text-slate-300 italic\'>Add context...</span>'"></div>
                              <textarea x-show="editingDesc" x-model="activeTodo.description" @blur="updateMainTask(activeTodo)" class="w-full h-40 bg-slate-50 border-none rounded-xl p-4 text-sm focus:ring-black" placeholder="Markdown..."></textarea>
                         </div>
-                        
                         <div class="pt-8 border-t border-slate-100">
                              <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Steps</h4>
                              <div class="space-y-4 mb-6">
                                 <template x-for="(sub, index) in activeTodo.subtasks" :key="index">
                                     <div class="group bg-slate-50 p-4 rounded-2xl border border-transparent hover:border-slate-200">
                                         <div class="flex items-start space-x-3">
-                                            <input type="checkbox" x-model="sub.done" @change="updateSubtasks(activeTodo)" class="mt-1 w-5 h-5 rounded border-slate-300 text-black">
-                                            <div class="flex-1 space-y-2">
-                                                <input type="text" x-model="sub.text" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0">
-                                                <input type="text" x-model="sub.description" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-xs text-slate-400 focus:ring-0 placeholder:text-slate-300" placeholder="Details...">
-                                            </div>
+                                            <input type="checkbox" x-model="sub.done" @change="updateSubtasks(activeTodo)" class="mt-1 w-5 h-5 rounded border-slate-300 text-black"><div class="flex-1 space-y-2"><input type="text" x-model="sub.text" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0"><input type="text" x-model="sub.description" @blur="updateSubtasks(activeTodo)" class="w-full bg-transparent border-none p-0 text-xs text-slate-400 focus:ring-0 placeholder:text-slate-300" placeholder="Details..."></div>
                                             <button @click="removeSubtask(activeTodo, index)" class="text-slate-300 hover:text-red-500"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round"/></svg></button>
                                         </div>
                                     </div>
                                 </template>
                              </div>
                              <div class="bg-white border-2 border-slate-100 rounded-2xl p-4 shadow-sm">
-                                <p class="text-[10px] font-bold uppercase text-slate-300 mb-2">New Step</p>
-                                <input type="text" x-model="tempSubTitle" @keydown.enter="$refs.descInput.focus()" placeholder="Step title..." class="w-full border-none p-0 text-sm font-bold mb-2 focus:ring-0">
-                                <input x-ref="descInput" type="text" x-model="tempSubDesc" @keydown.enter="addRichSubtask(activeTodo)" placeholder="Description..." class="w-full border-none p-0 text-xs text-slate-500 focus:ring-0">
-                                <button @click="addRichSubtask(activeTodo)" class="w-full mt-3 bg-black text-white py-3 rounded-xl text-xs font-bold uppercase">Add Step</button>
+                                <input type="text" x-model="tempSubTitle" @keydown.enter="$refs.descInput.focus()" placeholder="Step title..." class="w-full border-none p-0 text-sm font-bold mb-2 focus:ring-0"><input x-ref="descInput" type="text" x-model="tempSubDesc" @keydown.enter="addRichSubtask(activeTodo)" placeholder="Description..." class="w-full border-none p-0 text-xs text-slate-500 focus:ring-0"><button @click="addRichSubtask(activeTodo)" class="w-full mt-3 bg-black text-white py-3 rounded-xl text-xs font-bold uppercase">Add Step</button>
                              </div>
                         </div>
                         <button @click="closeReadMode()" class="w-full mt-8 bg-slate-100 text-slate-500 py-4 rounded-2xl font-bold active:scale-95 mb-10">Close</button>
@@ -218,12 +190,7 @@
 
         function todoApp() {
             return {
-                todos: [], newTodo: '', newDescription: '', newImportance: '2',
-                isOnline: navigator.onLine, showFilters: false, activeTodo: null,
-                inputFocused: false, filterStatus: 'all', sortBy: 'newest',
-                editingDesc: false, tempSubTitle: '', tempSubDesc: '', isSyncing: false,
-                startY: 0, pullDistance: 0,
-
+                todos: [], newTodo: '', newDescription: '', newImportance: '2', isOnline: navigator.onLine, showFilters: false, activeTodo: null, inputFocused: false, filterStatus: 'all', sortBy: 'newest', editingDesc: false, tempSubTitle: '', tempSubDesc: '', isSyncing: false, startY: 0, pullDistance: 0,
                 async init() {
                     marked.setOptions({ gfm: true, breaks: true });
                     window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); });
@@ -233,13 +200,10 @@
                     await this.fetchTodos();
                     this.syncPending();
                 },
-
                 touchStart(e) { if (window.scrollY > 10) return; this.startY = e.touches ? e.touches[0].pageY : e.pageY; },
                 touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
                 async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
-
                 sanitizeTodo(t) { return { ...t, isPending: t.isPending || false, description: t.description || '', subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] }; },
-
                 async fetchTodos() {
                     if (!this.isOnline) return;
                     const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
@@ -250,17 +214,13 @@
                         localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                     }
                 },
-
                 async syncPending() {
                     if (!this.isOnline || this.isSyncing) return;
                     this.isSyncing = true;
                     try {
                         const pending = this.todos.filter(t => t.isPending);
                         for (const task of pending) {
-                            const { data, error } = await supabaseClient.from('todos').insert([{ 
-                                task: task.task, description: task.description || '', category: task.category || 'General', 
-                                importance: task.importance || 2, is_completed: task.is_completed || false, subtasks: task.subtasks || []
-                            }]).select();
+                            const { data, error } = await supabaseClient.from('todos').insert([{ task: task.task, description: task.description || '', category: task.category || 'General', importance: task.importance || 2, is_completed: task.is_completed || false, subtasks: task.subtasks || [] }]).select();
                             if (!error && data?.length > 0) {
                                 const index = this.todos.findIndex(t => t.id === task.id);
                                 if (index !== -1) { this.todos[index] = this.sanitizeTodo(data[0]); localStorage.setItem('todo_cache', JSON.stringify(this.todos)); }
@@ -268,7 +228,6 @@
                         }
                     } finally { this.isSyncing = false; if (this.todos.some(t => t.isPending)) this.syncPending(); }
                 },
-
                 applyCategory(cat) { this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat; },
                 async addTodo() {
                     if (!this.newTodo.trim()) return;
@@ -281,40 +240,23 @@
                     this.newTodo = ''; this.newDescription = ''; this.inputFocused = false;
                     if (this.isOnline) this.syncPending();
                 },
-
                 get activeTasks() { return this.sortItems(this.todos.filter(t => !t.is_completed)); },
                 get completedTasks() { return this.sortItems(this.todos.filter(t => t.is_completed)); },
                 sortItems(items) { return items.sort((a, b) => { if (this.sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at); if (this.sortBy === 'importance') return b.importance - a.importance; return 0; }); },
                 get uniqueCategories() { return [...new Set(this.todos.map(t => t.category).filter(c => c && c !== 'General'))].sort(); },
-                
                 getTagColor(category) {
                     const colors = ['bg-blue-50 text-blue-600', 'bg-indigo-50 text-indigo-600', 'bg-emerald-50 text-emerald-600', 'bg-rose-50 text-rose-600', 'bg-amber-50 text-amber-600', 'bg-cyan-50 text-cyan-600', 'bg-pink-50 text-pink-600', 'bg-violet-50 text-violet-600', 'bg-lime-50 text-lime-600', 'bg-orange-50 text-orange-600', 'bg-teal-50 text-teal-600', 'bg-fuchsia-50 text-fuchsia-600', 'bg-sky-50 text-sky-600', 'bg-slate-100 text-slate-600', 'bg-purple-50 text-purple-600', 'bg-red-50 text-red-600', 'bg-green-50 text-green-600', 'bg-zinc-100 text-zinc-600', 'bg-neutral-100 text-neutral-600', 'bg-stone-100 text-stone-600'];
                     let hash = 0; for (let i = 0; i < (category || '').length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
                     return colors[Math.abs(hash) % colors.length];
                 },
-
-                openReadMode(todo) { 
-                    this.activeTodo = todo; this.tempSubTitle = ''; this.tempSubDesc = ''; this.editingDesc = false; document.body.style.overflow = 'hidden'; 
-                },
+                openReadMode(todo) { this.activeTodo = todo; this.tempSubTitle = ''; this.tempSubDesc = ''; this.editingDesc = false; document.body.style.overflow = 'hidden'; },
                 closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; },
-                
-                async addRichSubtask(todo) { 
-                    if (!this.tempSubTitle.trim()) return; 
-                    if (!Array.isArray(todo.subtasks)) todo.subtasks = []; 
-                    todo.subtasks.push({ text: this.tempSubTitle, description: this.tempSubDesc, done: false }); 
-                    this.tempSubTitle = ''; this.tempSubDesc = ''; 
-                    await this.updateSubtasks(todo); 
-                },
+                async addRichSubtask(todo) { if (!this.tempSubTitle.trim()) return; if (!Array.isArray(todo.subtasks)) todo.subtasks = []; todo.subtasks.push({ text: this.tempSubTitle, description: this.tempSubDesc, done: false }); this.tempSubTitle = ''; this.tempSubDesc = ''; await this.updateSubtasks(todo); },
                 async removeSubtask(todo, index) { todo.subtasks.splice(index, 1); await this.updateSubtasks(todo); },
                 async updateSubtasks(todo) { localStorage.setItem('todo_cache', JSON.stringify(this.todos)); if (this.isOnline && !todo.isPending) { await supabaseClient.from('todos').update({ subtasks: todo.subtasks }).eq('id', todo.id); } },
-                async updateMainTask(todo) { 
-                    localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
-                    if (this.isOnline && !todo.isPending) { 
-                        await supabaseClient.from('todos').update({ task: todo.task, description: todo.description, category: todo.category, importance: todo.importance }).eq('id', todo.id); 
-                    } 
-                },
+                async updateMainTask(todo) { localStorage.setItem('todo_cache', JSON.stringify(this.todos)); if (this.isOnline && !todo.isPending) { await supabaseClient.from('todos').update({ task: todo.task, description: todo.description, category: todo.category, importance: todo.importance }).eq('id', todo.id); } },
                 async toggleTodo(todo) { todo.is_completed = !todo.is_completed; localStorage.setItem('todo_cache', JSON.stringify(this.todos)); if (this.isOnline && !todo.isPending) await supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id); },
-                async deleteTodo(id) { if (confirm("Delete this task?")) { this.todos = this.todos.filter(t => t.id !== id); localStorage.setItem('todo_cache', JSON.stringify(this.todos)); if (this.isOnline && !id.toString().startsWith('temp')) await supabaseClient.from('todos').delete().eq('id', id); } }
+                async deleteTodo(id) { if (confirm("Delete?")) { this.todos = this.todos.filter(t => t.id !== id); localStorage.setItem('todo_cache', JSON.stringify(this.todos)); if (this.isOnline && !id.toString().startsWith('temp')) await supabaseClient.from('todos').delete().eq('id', id); } }
             }
         }
     </script>
