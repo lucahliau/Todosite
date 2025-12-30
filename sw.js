@@ -12,7 +12,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.allSettled([
         ...STATIC_ASSETS.map(asset => cache.add(asset)),
-        cache.add('/icon.png?v=1') // Force fresh pull
+        cache.add('/icon.jpg?v=1') // Force fresh pull
       ]);
     })
   );
