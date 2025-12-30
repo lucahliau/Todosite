@@ -1,4 +1,4 @@
-const CACHE_NAME = 'command-center-v3'; // Changed from v2 to v3
+const CACHE_NAME = 'command-center-v5';
 const ASSETS = [
   '/',
   '/index.html',
