@@ -47,17 +47,22 @@
     <div x-data="todoApp()" x-init="init()" x-cloak class="max-w-3xl mx-auto px-5 pt-8">
         
         <header class="mb-8 flex justify-between items-start">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">Command Center</h1>
-                <div class="flex items-center space-x-2 mt-1">
-                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
-                        <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
-                    </div>
-                </div>
+    <div>
+        <h1 class="text-3xl font-extrabold tracking-tight">Todo</h1>
+        
+        <div class="flex items-center space-x-2 mt-1">
+            <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
+                <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
             </div>
-            <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
-        </header>
+            
+            <span class="text-slate-300 text-xs">•</span>
+            
+            <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })"></p>
+        </div>
+    </div>
+    <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
+</header>
 
         <section class="mb-8 space-y-3">
             <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm transition-all focus-within:ring-4 focus-within:ring-black/5">
