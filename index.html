@@ -19,7 +19,6 @@
         [x-cloak] { display: none !important; }
         .markdown-content p { margin-bottom: 0.5rem; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
         @keyframes pulse-green {
             0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
@@ -38,13 +37,10 @@
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Command Center</h1>
                 <div class="flex items-center space-x-2 mt-1">
-                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
+                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm" @click="syncPending()">
                         <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
                         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
                     </div>
-                    <button x-show="hasPending" @click="syncPending()" class="text-[10px] font-bold text-blue-500 hover:underline uppercase tracking-widest">
-                        Force Sync
-                    </button>
                 </div>
             </div>
             <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
@@ -52,14 +48,10 @@
 
         <section class="mb-8 space-y-3">
             <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm transition-all focus-within:ring-4 focus-within:ring-black/5">
-                <input 
-                    type="text" x-model="newTodo" @focus="inputFocused = true"
-                    placeholder="What's the next step? #tag" 
-                    class="w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate-200"
-                >
+                <input type="text" x-model="newTodo" @focus="inputFocused = true" placeholder="Add task... #tag" class="w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate-200">
                 
                 <div x-show="newTodo.length > 0" x-collapse>
-                    <textarea x-model="newDescription" placeholder="Context or details..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
+                    <textarea x-model="newDescription" placeholder="Description (markdown)..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
                     <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
                         <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg outline-none border-none">
                             <option value="1">Low</option>
@@ -72,13 +64,8 @@
             </div>
 
             <div x-show="inputFocused && uniqueCategories.length > 0" x-transition class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 px-1">
-                <span class="text-[9px] font-black uppercase text-slate-300 whitespace-nowrap mr-1">Re-use:</span>
                 <template x-for="cat in uniqueCategories" :key="cat">
-                    <button 
-                        @click="applyCategory(cat)"
-                        class="px-3 py-1.5 rounded-full bg-white border border-slate-100 shadow-sm text-[11px] font-bold text-slate-600 whitespace-nowrap active:bg-slate-100 transition-colors"
-                        x-text="'#' + cat"
-                    ></button>
+                    <button @click="applyCategory(cat)" class="px-3 py-1.5 rounded-full bg-white border border-slate-100 shadow-sm text-[11px] font-bold text-slate-600 whitespace-nowrap active:bg-slate-100 transition-colors" x-text="'#' + cat"></button>
                 </template>
             </div>
         </section>
@@ -101,41 +88,64 @@
             </div>
         </div>
 
-        <main class="space-y-10">
-            <div class="space-y-4">
+        <main class="space-y-12">
+            
+            <div x-show="filterStatus !== 'completed'" class="space-y-4">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
                 <template x-for="todo in activeTasks" :key="todo.id">
-                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
-                        <div class="flex items-start space-x-4">
-                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center transition-all border-slate-200">
-                                <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </button>
-                            <div class="flex-1 cursor-pointer" @click="openReadMode(todo)">
-                                <h3 class="font-bold text-slate-800" x-text="todo.task"></h3>
-                                <div class="flex items-center space-x-2 mt-2">
-                                    <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
-                                    <span x-show="todo.isPending" class="text-[9px] font-bold text-amber-500 uppercase tracking-tight">Wait Sync</span>
+                    <div class="space-y-2">
+                        <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start space-x-4 flex-1">
+                                    <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center transition-all border-slate-200">
+                                        <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    <div class="flex-1 cursor-pointer" @click="openReadMode(todo)">
+                                        <h3 class="font-bold text-slate-800" x-text="todo.task"></h3>
+                                        <div class="flex items-center space-x-2 mt-2">
+                                            <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
+                                            <span x-show="todo.importance == 3" class="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
+                                            <span x-show="todo.isPending" class="text-[9px] font-bold text-amber-500 uppercase">Syncing...</span>
+                                        </div>
+                                    </div>
                                 </div>
+                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg>
+                                </button>
                             </div>
-                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg>
-                            </button>
+                        </div>
+                        
+                        <div class="ml-10 space-y-2 border-l-2 border-slate-100 pl-4">
+                            <template x-for="(sub, idx) in (todo.subtasks || [])" :key="idx">
+                                <div class="flex items-center group bg-white/50 border border-slate-100 rounded-2xl p-3 shadow-sm">
+                                    <input type="checkbox" x-model="sub.done" @change="updateSubtasks(todo)" class="w-4 h-4 rounded border-slate-300 text-black">
+                                    <span class="flex-1 ml-3 text-sm font-medium text-slate-600" :class="sub.done ? 'line-through opacity-40' : ''" x-text="sub.text"></span>
+                                    <button @click="removeSubtask(todo, idx)" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round"/></svg>
+                                    </button>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </template>
             </div>
 
-            <div x-show="completedTasks.length > 0" class="space-y-3 opacity-60">
-                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
+            <div x-show="filterStatus !== 'active' && completedTasks.length > 0" class="space-y-4">
+                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed Tasks</h2>
                 <template x-for="todo in completedTasks" :key="todo.id">
-                    <div class="bg-slate-50/50 border border-slate-100 rounded-3xl p-4">
-                        <div class="flex items-center space-x-4">
-                            <button @click="toggleTodo(todo)" class="w-7 h-7 rounded-full bg-black flex items-center justify-center">
+                    <div class="group bg-white border border-slate-100 rounded-3xl p-5 shadow-sm opacity-50 grayscale hover:grayscale-0 transition-all">
+                        <div class="flex items-start space-x-4">
+                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black flex items-center justify-center transition-all">
                                 <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </button>
-                            <h3 class="text-sm font-semibold text-slate-500 line-through flex-1" x-text="todo.task"></h3>
-                            <button @click="deleteTodo(todo.id)" class="text-slate-200 hover:text-red-500 p-1">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" /></svg>
+                            <div class="flex-1 cursor-pointer" @click="openReadMode(todo)">
+                                <h3 class="font-bold text-slate-500 line-through" x-text="todo.task"></h3>
+                                <div class="flex items-center space-x-2 mt-2">
+                                    <span class="text-[9px] uppercase font-black px-2 py-1 bg-slate-100 text-slate-400 rounded-md" x-text="todo.category"></span>
+                                </div>
+                            </div>
+                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg>
                             </button>
                         </div>
                     </div>
@@ -149,24 +159,18 @@
                 <div x-show="activeTodo" x-transition:enter="transition ease-out duration-300 transform translate-y-0" x-transition:enter-start="translate-y-full" class="relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar">
                     <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-8" @click="closeReadMode()"></div>
                     <div x-if="activeTodo">
-                        <h2 class="text-3xl font-bold mb-6" x-text="activeTodo.task"></h2>
-                        <div class="markdown-content text-slate-600 leading-relaxed" x-html="marked.parse(activeTodo.description || '_No description provided._')"></div>
+                        <h2 class="text-3xl font-bold mb-6 text-slate-900" x-text="activeTodo.task"></h2>
+                        <div class="markdown-content text-slate-600 leading-relaxed text-[16px]" x-html="marked.parse(activeTodo.description || '_No description._')"></div>
                         
                         <div class="mt-8 pt-8 border-t border-slate-100">
-                             <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Subtasks</h4>
-                             <div class="space-y-3">
-                                <template x-for="(sub, index) in (activeTodo.subtasks || [])" :key="index">
-                                    <div class="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl">
-                                        <input type="checkbox" x-model="sub.done" @change="updateSubtasks(activeTodo)" class="w-4 h-4 rounded border-slate-300 text-black">
-                                        <span class="flex-1 text-sm text-slate-600" :class="sub.done ? 'line-through opacity-50' : ''" x-text="sub.text"></span>
-                                        <button @click="removeSubtask(activeTodo, index)" class="text-slate-300 hover:text-red-500">×</button>
-                                    </div>
-                                </template>
-                                <input type="text" x-model="activeTodo.tempSubtask" @keydown.enter="addSubtask(activeTodo)" placeholder="Add subtask..." class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm outline-none placeholder:text-slate-300">
+                             <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Add Subtasks</h4>
+                             <div class="flex space-x-2">
+                                <input type="text" x-model="activeTodo.tempSubtask" @keydown.enter="addSubtask(activeTodo)" placeholder="Next micro-step..." class="flex-1 bg-slate-50 border-none rounded-2xl p-4 text-sm font-medium outline-none">
+                                <button @click="addSubtask(activeTodo)" class="bg-black text-white px-6 rounded-2xl font-bold text-xs uppercase">Add</button>
                              </div>
                         </div>
 
-                        <button @click="closeReadMode()" class="w-full mt-10 bg-black text-white py-4 rounded-2xl font-bold active:scale-95 transition-all">Done</button>
+                        <button @click="closeReadMode()" class="w-full mt-10 bg-slate-900 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all">Done Reading</button>
                     </div>
                 </div>
             </div>
@@ -205,7 +209,6 @@
                 async fetchTodos() {
                     if (!this.isOnline) return;
                     const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
-                    
                     if (!error) {
                         const pendingTasks = this.todos.filter(t => t.isPending);
                         const serverTasks = data.map(t => ({ ...t, isPending: false }));
@@ -236,30 +239,15 @@
                     if (this.isOnline) this.syncPending();
                 },
 
-                // --- THIS IS THE UPDATED DEBUG FUNCTION ---
                 async syncPending() {
                     if (!this.isOnline) return;
                     const pending = this.todos.filter(t => t.isPending);
-                    
                     for (const task of pending) {
-                        // We construct a cleaner payload to send to Supabase
-                        const payload = { 
-                            task: task.task, 
-                            description: task.description || '', 
-                            category: task.category || 'General', 
-                            importance: task.importance || 2, 
-                            is_completed: task.is_completed || false, 
-                            subtasks: task.subtasks || [] 
-                        };
-
-                        const { data, error } = await supabaseClient.from('todos').insert([payload]).select();
-
-                        if (error) {
-                            // !!! THIS WILL TELL YOU THE PROBLEM !!!
-                            console.error("SYNC ERROR:", error);
-                            alert("Sync Failed: " + error.message + "\n\nLikely cause: Missing 'subtasks' or 'description' column in Supabase.");
-                        } else {
-                            // On success, replace the temp task with the real one
+                        const { data, error } = await supabaseClient.from('todos').insert([{ 
+                            task: task.task, description: task.description || '', category: task.category || 'General', 
+                            importance: task.importance || 2, is_completed: task.is_completed || false, subtasks: task.subtasks || []
+                        }]).select();
+                        if (!error) {
                             this.todos = this.todos.filter(t => t.id !== task.id);
                             this.todos.unshift({ ...data[0], isPending: false });
                             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
@@ -267,24 +255,19 @@
                     }
                 },
 
-                get hasPending() { return this.todos.some(t => t.isPending); },
-
                 get activeTasks() { 
-                    let items = this.todos.filter(t => !t.is_completed);
-                    if (this.filterStatus === 'completed') return [];
-                    return this.sortItems(items);
+                    return this.sortItems(this.todos.filter(t => !t.is_completed));
                 },
                 
                 get completedTasks() { 
-                    let items = this.todos.filter(t => t.is_completed);
-                    if (this.filterStatus === 'active') return [];
-                    return this.sortItems(items);
+                    return this.sortItems(this.todos.filter(t => t.is_completed));
                 },
 
                 sortItems(items) {
                     return items.sort((a, b) => {
                          if (this.sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
                          if (this.sortBy === 'importance') return b.importance - a.importance;
+                         return 0;
                     });
                 },
 
@@ -292,7 +275,11 @@
                     return [...new Set(this.todos.map(t => t.category).filter(c => c && c !== 'General'))].sort();
                 },
 
-                openReadMode(todo) { this.activeTodo = todo; document.body.style.overflow = 'hidden'; },
+                openReadMode(todo) { 
+                    this.activeTodo = todo; 
+                    if (!this.activeTodo.tempSubtask) this.activeTodo.tempSubtask = '';
+                    document.body.style.overflow = 'hidden'; 
+                },
                 closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; },
                 
                 async addSubtask(todo) {
