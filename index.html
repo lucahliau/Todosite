@@ -38,12 +38,13 @@
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Command Center</h1>
                 <div class="flex items-center space-x-2 mt-1">
-                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm">
+                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
                         <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
                         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
                     </div>
-                    <span class="text-slate-300 text-xs">•</span>
-                    <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })"></p>
+                    <button x-show="hasPending" @click="syncPending()" class="text-[10px] font-bold text-blue-500 hover:underline uppercase tracking-widest">
+                        Force Sync
+                    </button>
                 </div>
             </div>
             <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
@@ -195,10 +196,8 @@
                 async init() {
                     window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); });
                     window.addEventListener('offline', () => { this.isOnline = false; });
-                    
                     const cached = localStorage.getItem('todo_cache');
                     if (cached) this.todos = JSON.parse(cached);
-                    
                     await this.fetchTodos();
                     this.syncPending();
                 },
@@ -208,14 +207,9 @@
                     const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
                     
                     if (!error) {
-                        // FIX: Preserve pending tasks, then append server tasks
                         const pendingTasks = this.todos.filter(t => t.isPending);
                         const serverTasks = data.map(t => ({ ...t, isPending: false }));
-                        
-                        // Merge them (pending first so they stay at top)
                         this.todos = [...pendingTasks, ...serverTasks];
-                        
-                        // Update Cache
                         localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                     }
                 },
@@ -242,21 +236,38 @@
                     if (this.isOnline) this.syncPending();
                 },
 
+                // --- THIS IS THE UPDATED DEBUG FUNCTION ---
                 async syncPending() {
                     if (!this.isOnline) return;
                     const pending = this.todos.filter(t => t.isPending);
+                    
                     for (const task of pending) {
-                        const { data, error } = await supabaseClient.from('todos').insert([{ 
-                            task: task.task, description: task.description, category: task.category, 
-                            importance: task.importance, is_completed: task.is_completed, subtasks: task.subtasks || []
-                        }]).select();
-                        if (!error) {
+                        // We construct a cleaner payload to send to Supabase
+                        const payload = { 
+                            task: task.task, 
+                            description: task.description || '', 
+                            category: task.category || 'General', 
+                            importance: task.importance || 2, 
+                            is_completed: task.is_completed || false, 
+                            subtasks: task.subtasks || [] 
+                        };
+
+                        const { data, error } = await supabaseClient.from('todos').insert([payload]).select();
+
+                        if (error) {
+                            // !!! THIS WILL TELL YOU THE PROBLEM !!!
+                            console.error("SYNC ERROR:", error);
+                            alert("Sync Failed: " + error.message + "\n\nLikely cause: Missing 'subtasks' or 'description' column in Supabase.");
+                        } else {
+                            // On success, replace the temp task with the real one
                             this.todos = this.todos.filter(t => t.id !== task.id);
                             this.todos.unshift({ ...data[0], isPending: false });
                             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                         }
                     }
                 },
+
+                get hasPending() { return this.todos.some(t => t.isPending); },
 
                 get activeTasks() { 
                     let items = this.todos.filter(t => !t.is_completed);
