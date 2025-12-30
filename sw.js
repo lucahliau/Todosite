@@ -1,7 +1,5 @@
-const CACHE_NAME = 'command-center-v11'; 
+const CACHE_NAME = 'command-center-v12'; // Bumped version
 
-// REMOVED icon.png from here. 
-// If it's missing, it won't crash the app anymore.
 const STATIC_ASSETS = [
   '/',
   '/index.html'
@@ -55,5 +53,3 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-
-
