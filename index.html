@@ -82,11 +82,29 @@
             </div>
         </section>
 
+        <div x-show="showFilters" x-collapse class="mb-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-xl grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-[0.2em]">View</label>
+                <select x-model="filterStatus" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-semibold border-none outline-none">
+                    <option value="all">All Tasks</option>
+                    <option value="active">Active Only</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-[0.2em]">Sort</label>
+                <select x-model="sortBy" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-semibold border-none outline-none">
+                    <option value="newest">Recent</option>
+                    <option value="importance">Priority</option>
+                </select>
+            </div>
+        </div>
+
         <main class="space-y-10">
             <div class="space-y-4">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
                 <template x-for="todo in activeTasks" :key="todo.id">
-                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all">
+                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
                         <div class="flex items-start space-x-4">
                             <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center transition-all border-slate-200">
                                 <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -95,7 +113,7 @@
                                 <h3 class="font-bold text-slate-800" x-text="todo.task"></h3>
                                 <div class="flex items-center space-x-2 mt-2">
                                     <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
-                                    <span x-show="todo.isPending" class="text-[9px] font-bold text-amber-500 uppercase">Wait Sync</span>
+                                    <span x-show="todo.isPending" class="text-[9px] font-bold text-amber-500 uppercase tracking-tight">Wait Sync</span>
                                 </div>
                             </div>
                             <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
@@ -132,6 +150,21 @@
                     <div x-if="activeTodo">
                         <h2 class="text-3xl font-bold mb-6" x-text="activeTodo.task"></h2>
                         <div class="markdown-content text-slate-600 leading-relaxed" x-html="marked.parse(activeTodo.description || '_No description provided._')"></div>
+                        
+                        <div class="mt-8 pt-8 border-t border-slate-100">
+                             <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Subtasks</h4>
+                             <div class="space-y-3">
+                                <template x-for="(sub, index) in (activeTodo.subtasks || [])" :key="index">
+                                    <div class="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl">
+                                        <input type="checkbox" x-model="sub.done" @change="updateSubtasks(activeTodo)" class="w-4 h-4 rounded border-slate-300 text-black">
+                                        <span class="flex-1 text-sm text-slate-600" :class="sub.done ? 'line-through opacity-50' : ''" x-text="sub.text"></span>
+                                        <button @click="removeSubtask(activeTodo, index)" class="text-slate-300 hover:text-red-500">×</button>
+                                    </div>
+                                </template>
+                                <input type="text" x-model="activeTodo.tempSubtask" @keydown.enter="addSubtask(activeTodo)" placeholder="Add subtask..." class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm outline-none placeholder:text-slate-300">
+                             </div>
+                        </div>
+
                         <button @click="closeReadMode()" class="w-full mt-10 bg-black text-white py-4 rounded-2xl font-bold active:scale-95 transition-all">Done</button>
                     </div>
                 </div>
@@ -156,12 +189,16 @@
                 showFilters: false,
                 activeTodo: null,
                 inputFocused: false,
+                filterStatus: 'all',
+                sortBy: 'newest',
 
                 async init() {
                     window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); });
                     window.addEventListener('offline', () => { this.isOnline = false; });
+                    
                     const cached = localStorage.getItem('todo_cache');
                     if (cached) this.todos = JSON.parse(cached);
+                    
                     await this.fetchTodos();
                     this.syncPending();
                 },
@@ -169,14 +206,21 @@
                 async fetchTodos() {
                     if (!this.isOnline) return;
                     const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
+                    
                     if (!error) {
-                        this.todos = data.map(t => ({ ...t, isPending: false }));
+                        // FIX: Preserve pending tasks, then append server tasks
+                        const pendingTasks = this.todos.filter(t => t.isPending);
+                        const serverTasks = data.map(t => ({ ...t, isPending: false }));
+                        
+                        // Merge them (pending first so they stay at top)
+                        this.todos = [...pendingTasks, ...serverTasks];
+                        
+                        // Update Cache
                         localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                     }
                 },
 
                 applyCategory(cat) {
-                    // Removes existing hashtag if present to prevent double tagging
                     this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat;
                 },
 
@@ -189,7 +233,7 @@
                     const newObj = {
                         id: 'temp-' + Date.now(),
                         task: taskText, description: this.newDescription, category: category,
-                        importance: parseInt(this.newImportance), is_completed: false, isPending: true, created_at: new Date().toISOString()
+                        importance: parseInt(this.newImportance), is_completed: false, isPending: true, created_at: new Date().toISOString(), subtasks: []
                     };
 
                     this.todos.unshift(newObj);
@@ -204,7 +248,7 @@
                     for (const task of pending) {
                         const { data, error } = await supabaseClient.from('todos').insert([{ 
                             task: task.task, description: task.description, category: task.category, 
-                            importance: task.importance, is_completed: task.is_completed, subtasks: []
+                            importance: task.importance, is_completed: task.is_completed, subtasks: task.subtasks || []
                         }]).select();
                         if (!error) {
                             this.todos = this.todos.filter(t => t.id !== task.id);
@@ -214,8 +258,25 @@
                     }
                 },
 
-                get activeTasks() { return this.todos.filter(t => !t.is_completed).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)); },
-                get completedTasks() { return this.todos.filter(t => t.is_completed).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)); },
+                get activeTasks() { 
+                    let items = this.todos.filter(t => !t.is_completed);
+                    if (this.filterStatus === 'completed') return [];
+                    return this.sortItems(items);
+                },
+                
+                get completedTasks() { 
+                    let items = this.todos.filter(t => t.is_completed);
+                    if (this.filterStatus === 'active') return [];
+                    return this.sortItems(items);
+                },
+
+                sortItems(items) {
+                    return items.sort((a, b) => {
+                         if (this.sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+                         if (this.sortBy === 'importance') return b.importance - a.importance;
+                    });
+                },
+
                 get uniqueCategories() {
                     return [...new Set(this.todos.map(t => t.category).filter(c => c && c !== 'General'))].sort();
                 },
@@ -223,6 +284,26 @@
                 openReadMode(todo) { this.activeTodo = todo; document.body.style.overflow = 'hidden'; },
                 closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; },
                 
+                async addSubtask(todo) {
+                    if (!todo.tempSubtask.trim()) return;
+                    if (!todo.subtasks) todo.subtasks = [];
+                    todo.subtasks.push({ text: todo.tempSubtask, done: false });
+                    todo.tempSubtask = '';
+                    await this.updateSubtasks(todo);
+                },
+                
+                async removeSubtask(todo, index) {
+                    todo.subtasks.splice(index, 1);
+                    await this.updateSubtasks(todo);
+                },
+
+                async updateSubtasks(todo) {
+                     localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                     if (this.isOnline && !todo.isPending) {
+                         await supabaseClient.from('todos').update({ subtasks: todo.subtasks }).eq('id', todo.id);
+                     }
+                },
+
                 getTagColor(category) {
                     const palette = ['bg-blue-50 text-blue-600', 'bg-indigo-50 text-indigo-600', 'bg-emerald-50 text-emerald-600', 'bg-rose-50 text-rose-600'];
                     let hash = 0;
@@ -233,7 +314,7 @@
                 async toggleTodo(todo) {
                     todo.is_completed = !todo.is_completed;
                     localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                    if (this.isOnline) await supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id);
+                    if (this.isOnline && !todo.isPending) await supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id);
                 },
 
                 async deleteTodo(id) {
