@@ -3,220 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Focus | Task Manager</title>
+    <title>Command Center</title>
     
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Focus%22,%22short_name%22:%22Focus%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#000000%22}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="config.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            -webkit-font-smoothing: antialiased; 
-            overscroll-behavior-y: contain; /* Prevents "pull to refresh" bounce on mobile */
-        }
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         [x-cloak] { display: none !important; }
-        
-        /* Hide scrollbar but keep functionality */
+        .markdown-content p { margin-bottom: 0.5rem; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Mobile Tap Highlight Removal */
-        * { -webkit-tap-highlight-color: transparent; }
+        
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .pulse-online { animation: pulse-green 2s infinite; }
     </style>
 </head>
 
-<body class="bg-[#F8FAFC] text-slate-900 min-h-screen pb-20">
+<body class="bg-[#F9FBFC] text-slate-900 min-h-screen pb-20">
 
-    <div x-data="todoApp()" x-init="init()" x-cloak class="max-w-2xl mx-auto px-5 pt-10">
+    <div x-data="todoApp()" x-init="init()" x-cloak class="max-w-3xl mx-auto px-5 pt-8">
         
-        <header class="mb-10 flex justify-between items-end">
+        <header class="mb-8 flex justify-between items-start">
             <div>
-                <h1 class="text-3xl font-semibold tracking-tight text-slate-900">Today</h1>
-                <p class="text-slate-500 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })"></p>
+                <h1 class="text-3xl font-extrabold tracking-tight">Command Center</h1>
+                <div class="flex items-center space-x-2 mt-1">
+                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm">
+                        <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
+                    </div>
+                    <span class="text-slate-300 text-xs">•</span>
+                    <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })"></p>
+                </div>
             </div>
-            <div class="text-right">
-                <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400" x-text="todos.length + ' Tasks'"></span>
-            </div>
+            <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
         </header>
 
-        <section class="mb-8">
-            <div class="relative group">
+        <section class="mb-8 space-y-3">
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm transition-all focus-within:ring-4 focus-within:ring-black/5">
                 <input 
-                    type="text" 
-                    x-model="newTodo" 
-                    @keydown.enter="addTodo()"
-                    placeholder="Add task... #work"
-                    class="w-full bg-white border border-slate-200 rounded-2xl py-4 px-5 pr-20 shadow-sm focus:ring-4 focus:ring-black/5 focus:border-slate-300 outline-none transition-all placeholder:text-slate-300 text-[16px]"
+                    type="text" x-model="newTodo" @focus="inputFocused = true"
+                    placeholder="What's the next step? #tag" 
+                    class="w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate-200"
                 >
-                <button 
-                    @click="addTodo()"
-                    :disabled="isSubmitting || !newTodo.trim()"
-                    class="absolute right-2.5 top-2.5 h-11 px-5 rounded-xl text-sm font-bold transition-all duration-200"
-                    :class="newTodo.trim() ? 'bg-black text-white shadow-lg shadow-black/10' : 'bg-slate-50 text-slate-300'"
-                >
-                    <span x-show="!isSubmitting">Add</span>
-                    <span x-show="isSubmitting" class="flex items-center">
-                        <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    </span>
-                </button>
+                
+                <div x-show="newTodo.length > 0" x-collapse>
+                    <textarea x-model="newDescription" placeholder="Context or details..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
+                    <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
+                        <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg outline-none border-none">
+                            <option value="1">Low</option>
+                            <option value="2">Medium</option>
+                            <option value="3">High</option>
+                        </select>
+                        <button @click="addTodo()" class="bg-black text-white px-6 py-2 rounded-2xl text-sm font-bold active:scale-95">Create</button>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="inputFocused && uniqueCategories.length > 0" x-transition class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 px-1">
+                <span class="text-[9px] font-black uppercase text-slate-300 whitespace-nowrap mr-1">Re-use:</span>
+                <template x-for="cat in uniqueCategories" :key="cat">
+                    <button 
+                        @click="applyCategory(cat)"
+                        class="px-3 py-1.5 rounded-full bg-white border border-slate-100 shadow-sm text-[11px] font-bold text-slate-600 whitespace-nowrap active:bg-slate-100 transition-colors"
+                        x-text="'#' + cat"
+                    ></button>
+                </template>
             </div>
         </section>
 
-        <main class="space-y-3">
-            <template x-for="todo in todos" :key="todo.id">
-                <div 
-                    class="group flex items-center justify-between bg-white border border-slate-200 p-4 rounded-2xl transition-all duration-200"
-                    :class="todo.is_completed ? 'opacity-50' : 'shadow-sm'"
-                >
-                    <div class="flex items-center space-x-4 flex-1 min-w-0">
-                        <button 
-                            @click="toggleTodo(todo)"
-                            class="w-7 h-7 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300"
-                            :class="todo.is_completed ? 'bg-black border-black scale-90' : 'border-slate-200 hover:border-slate-400'"
-                        >
-                            <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                            </svg>
-                        </button>
-
-                        <div class="flex flex-col min-w-0">
-                            <span 
-                                x-text="todo.task" 
-                                class="text-[15px] font-medium transition-all duration-300 truncate"
-                                :class="todo.is_completed ? 'line-through text-slate-400' : 'text-slate-800'"
-                            ></span>
-                            <div class="flex items-center space-x-2 mt-1">
-                                <span 
-                                    class="text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-md transition-colors"
-                                    :class="getTagColor(todo.category)"
-                                    x-text="todo.category || 'General'"
-                                ></span>
-                                <span class="text-[9px] text-slate-300 font-medium" x-text="formatTime(todo.created_at)"></span>
+        <main class="space-y-10">
+            <div class="space-y-4">
+                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
+                <template x-for="todo in activeTasks" :key="todo.id">
+                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all">
+                        <div class="flex items-start space-x-4">
+                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center transition-all border-slate-200">
+                                <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <div class="flex-1 cursor-pointer" @click="openReadMode(todo)">
+                                <h3 class="font-bold text-slate-800" x-text="todo.task"></h3>
+                                <div class="flex items-center space-x-2 mt-2">
+                                    <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
+                                    <span x-show="todo.isPending" class="text-[9px] font-bold text-amber-500 uppercase">Wait Sync</span>
+                                </div>
                             </div>
+                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg>
+                            </button>
                         </div>
                     </div>
+                </template>
+            </div>
 
-                    <button 
-                        @click="deleteTodo(todo.id)"
-                        class="ml-2 p-2 text-slate-200 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 transition-all flex-shrink-0 active:scale-90"
-                    >
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                    </button>
-                </div>
-            </template>
-
-            <div x-show="todos.length === 0" class="flex flex-col items-center justify-center py-20">
-                <div class="w-12 h-12 bg-slate-100 rounded-full mb-4 flex items-center justify-center">
-                    <svg class="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round"/></svg>
-                </div>
-                <p class="text-slate-400 text-xs font-medium uppercase tracking-widest">No tasks remaining</p>
+            <div x-show="completedTasks.length > 0" class="space-y-3 opacity-60">
+                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
+                <template x-for="todo in completedTasks" :key="todo.id">
+                    <div class="bg-slate-50/50 border border-slate-100 rounded-3xl p-4">
+                        <div class="flex items-center space-x-4">
+                            <button @click="toggleTodo(todo)" class="w-7 h-7 rounded-full bg-black flex items-center justify-center">
+                                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <h3 class="text-sm font-semibold text-slate-500 line-through flex-1" x-text="todo.task"></h3>
+                            <button @click="deleteTodo(todo.id)" class="text-slate-200 hover:text-red-500 p-1">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </main>
+
+        <template x-teleport="body">
+            <div x-show="activeTodo" class="fixed inset-0 z-50 flex flex-col justify-end">
+                <div x-show="activeTodo" x-transition.opacity @click="closeReadMode()" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+                <div x-show="activeTodo" x-transition:enter="transition ease-out duration-300 transform translate-y-0" x-transition:enter-start="translate-y-full" class="relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar">
+                    <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-8" @click="closeReadMode()"></div>
+                    <div x-if="activeTodo">
+                        <h2 class="text-3xl font-bold mb-6" x-text="activeTodo.task"></h2>
+                        <div class="markdown-content text-slate-600 leading-relaxed" x-html="marked.parse(activeTodo.description || '_No description provided._')"></div>
+                        <button @click="closeReadMode()" class="w-full mt-10 bg-black text-white py-4 rounded-2xl font-bold active:scale-95 transition-all">Done</button>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <script>
         const supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
 
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+
         function todoApp() {
             return {
                 todos: [],
                 newTodo: '',
-                isSubmitting: false,
-                
+                newDescription: '',
+                newImportance: '2',
+                isOnline: navigator.onLine,
+                showFilters: false,
+                activeTodo: null,
+                inputFocused: false,
+
                 async init() {
-                    console.log("🚀 Initializing Focus App...");
+                    window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); });
+                    window.addEventListener('offline', () => { this.isOnline = false; });
+                    const cached = localStorage.getItem('todo_cache');
+                    if (cached) this.todos = JSON.parse(cached);
                     await this.fetchTodos();
+                    this.syncPending();
                 },
 
                 async fetchTodos() {
-                    const { data, error } = await supabaseClient
-                        .from('todos')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-                    
-                    if (error) console.error("❌ Fetch Error:", error.message);
-                    else this.todos = data || [];
+                    if (!this.isOnline) return;
+                    const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
+                    if (!error) {
+                        this.todos = data.map(t => ({ ...t, isPending: false }));
+                        localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                    }
+                },
+
+                applyCategory(cat) {
+                    // Removes existing hashtag if present to prevent double tagging
+                    this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat;
                 },
 
                 async addTodo() {
                     if (!this.newTodo.trim()) return;
-                    this.isSubmitting = true;
-
-                    let taskText = this.newTodo;
-                    let category = 'General';
+                    let taskText = this.newTodo, category = 'General';
                     const hashMatch = taskText.match(/#(\w+)/);
-                    if (hashMatch) {
-                        category = hashMatch[1];
-                        taskText = taskText.replace(hashMatch[0], '').trim();
-                    }
+                    if (hashMatch) { category = hashMatch[1]; taskText = taskText.replace(hashMatch[0], '').trim(); }
 
-                    const { data, error } = await supabaseClient.from('todos').insert([{ 
-                        task: taskText, 
-                        category: category,
-                        is_completed: false 
-                    }]).select();
+                    const newObj = {
+                        id: 'temp-' + Date.now(),
+                        task: taskText, description: this.newDescription, category: category,
+                        importance: parseInt(this.newImportance), is_completed: false, isPending: true, created_at: new Date().toISOString()
+                    };
 
-                    if (error) {
-                        alert("Error: " + error.message);
-                        console.error("❌ Add Error:", error);
-                    } else if (data) {
-                        this.todos.unshift(data[0]);
-                        this.newTodo = '';
+                    this.todos.unshift(newObj);
+                    localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                    this.newTodo = ''; this.newDescription = ''; this.inputFocused = false;
+                    if (this.isOnline) this.syncPending();
+                },
+
+                async syncPending() {
+                    if (!this.isOnline) return;
+                    const pending = this.todos.filter(t => t.isPending);
+                    for (const task of pending) {
+                        const { data, error } = await supabaseClient.from('todos').insert([{ 
+                            task: task.task, description: task.description, category: task.category, 
+                            importance: task.importance, is_completed: task.is_completed, subtasks: []
+                        }]).select();
+                        if (!error) {
+                            this.todos = this.todos.filter(t => t.id !== task.id);
+                            this.todos.unshift({ ...data[0], isPending: false });
+                            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                        }
                     }
-                    this.isSubmitting = false;
+                },
+
+                get activeTasks() { return this.todos.filter(t => !t.is_completed).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)); },
+                get completedTasks() { return this.todos.filter(t => t.is_completed).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)); },
+                get uniqueCategories() {
+                    return [...new Set(this.todos.map(t => t.category).filter(c => c && c !== 'General'))].sort();
+                },
+
+                openReadMode(todo) { this.activeTodo = todo; document.body.style.overflow = 'hidden'; },
+                closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; },
+                
+                getTagColor(category) {
+                    const palette = ['bg-blue-50 text-blue-600', 'bg-indigo-50 text-indigo-600', 'bg-emerald-50 text-emerald-600', 'bg-rose-50 text-rose-600'];
+                    let hash = 0;
+                    for (let i = 0; i < (category || '').length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
+                    return palette[Math.abs(hash) % palette.length] || 'bg-slate-100 text-slate-500';
                 },
 
                 async toggleTodo(todo) {
-                    const newState = !todo.is_completed;
-                    todo.is_completed = newState; // Optimistic update
-                    
-                    const { error } = await supabaseClient
-                        .from('todos')
-                        .update({ is_completed: newState })
-                        .eq('id', todo.id);
-                    
-                    if (error) console.error("❌ Toggle Error:", error.message);
+                    todo.is_completed = !todo.is_completed;
+                    localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                    if (this.isOnline) await supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id);
                 },
 
                 async deleteTodo(id) {
                     this.todos = this.todos.filter(t => t.id !== id);
-                    const { error } = await supabaseClient
-                        .from('todos')
-                        .delete()
-                        .eq('id', id);
-                    
-                    if (error) console.error("❌ Delete Error:", error.message);
-                },
-
-                getTagColor(category) {
-                    if (!category || category === 'General') return 'bg-slate-100 text-slate-500';
-                    
-                    const palette = [
-                        'bg-blue-50 text-blue-600',
-                        'bg-indigo-50 text-indigo-600',
-                        'bg-emerald-50 text-emerald-600',
-                        'bg-rose-50 text-rose-600',
-                        'bg-amber-50 text-amber-600',
-                        'bg-violet-50 text-violet-600',
-                        'bg-cyan-50 text-cyan-600'
-                    ];
-
-                    let hash = 0;
-                    for (let i = 0; i < category.length; i++) {
-                        hash = category.charCodeAt(i) + ((hash << 5) - hash);
-                    }
-                    return palette[Math.abs(hash) % palette.length];
-                },
-
-                formatTime(timestamp) {
-                    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                    if (this.isOnline && !id.toString().startsWith('temp')) await supabaseClient.from('todos').delete().eq('id', id);
                 }
             }
         }
