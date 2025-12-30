@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
     <script src="config.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -16,7 +15,6 @@
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         [x-cloak] { display: none !important; }
-        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
     </style>
 </head>
 
@@ -27,7 +25,7 @@
         <header class="mb-10 flex justify-between items-end">
             <div>
                 <h1 class="text-3xl font-semibold tracking-tight">Today</h1>
-                <p class="text-slate-500 text-sm" x-text="new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })"></p>
+                <p class="text-slate-500 text-sm" x-text="new Date().toLocaleDateString()"></p>
             </div>
             <div class="text-right">
                 <span class="text-xs font-medium uppercase tracking-widest text-slate-400" x-text="todos.length + ' Tasks'"></span>
@@ -40,55 +38,35 @@
                     type="text" 
                     x-model="newTodo" 
                     @keydown.enter="addTodo()"
-                    placeholder="Add a task (e.g. Prep deck #work)"
-                    class="w-full bg-white border border-slate-200 rounded-2xl py-4 px-5 pr-16 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-slate-300 transition-all placeholder:text-slate-400"
+                    placeholder="Add task... (e.g. Prep deck #work)"
+                    class="w-full bg-white border border-slate-200 rounded-2xl py-4 px-5 pr-20 shadow-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                 >
                 <button 
                     @click="addTodo()"
-                    class="absolute right-3 top-2.5 bg-black text-white h-10 px-4 rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
+                    :disabled="isSubmitting"
+                    class="absolute right-3 top-2.5 bg-black text-white h-10 px-4 rounded-xl text-sm font-medium hover:bg-slate-800 disabled:bg-slate-400 transition-colors"
                 >
-                    Add
+                    <span x-text="isSubmitting ? '...' : 'Add'"></span>
                 </button>
             </div>
         </section>
 
         <main class="space-y-3">
             <template x-for="todo in todos" :key="todo.id">
-                <div 
-                    class="group flex items-center justify-between bg-white border border-slate-200 p-4 rounded-2xl hover:shadow-md hover:border-slate-300 transition-all duration-200"
-                    :class="todo.is_completed ? 'opacity-60' : ''"
-                >
-                    <div class="flex items-center space-x-4 flex-1">
-                        <button 
-                            @click="toggleTodo(todo)"
-                            class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
-                            :class="todo.is_completed ? 'bg-black border-black' : 'border-slate-200 hover:border-slate-400'"
-                        >
-                            <svg x-show="todo.is_completed" class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                            </svg>
+                <div class="group flex items-center justify-between bg-white border border-slate-200 p-4 rounded-2xl">
+                    <div class="flex items-center space-x-4">
+                        <button @click="toggleTodo(todo)" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all" :class="todo.is_completed ? 'bg-black border-black' : 'border-slate-200'">
+                            <svg x-show="todo.is_completed" class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
                         </button>
-
                         <div class="flex flex-col">
-                            <span 
-                                x-text="todo.task" 
-                                class="text-[15px] font-medium"
-                                :class="todo.is_completed ? 'line-through text-slate-400' : 'text-slate-800'"
-                            ></span>
+                            <span x-text="todo.task" class="text-[15px] font-medium" :class="todo.is_completed ? 'line-through text-slate-400' : ''"></span>
                             <div class="flex items-center space-x-2 mt-1">
-                                <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500" x-text="todo.category || 'General'"></span>
-                                <span class="text-[10px] text-slate-400" x-text="new Date(todo.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></span>
+                                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500" x-text="todo.category || 'General'"></span>
                             </div>
                         </div>
                     </div>
-
-                    <button 
-                        @click="deleteTodo(todo.id)"
-                        class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all"
-                    >
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                    <button @click="deleteTodo(todo.id)" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
             </template>
@@ -96,21 +74,38 @@
     </div>
 
     <script>
-        // Use keys from the config.js file
-        const supabase = lib.supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
+        // Use global supabase object from CDN
+        let supabaseClient;
+        try {
+            supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
+            console.log("✅ Supabase initialized successfully");
+        } catch (e) {
+            console.error("❌ Failed to initialize Supabase. Check config.js:", e);
+        }
 
         function todoApp() {
             return {
                 todos: [],
                 newTodo: '',
+                isSubmitting: false,
                 
                 async init() {
-                    const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
-                    this.todos = data || [];
+                    console.log("🚀 App initializing, fetching tasks...");
+                    const { data, error } = await supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
+                    
+                    if (error) {
+                        console.error("❌ Error fetching tasks:", error.message);
+                        alert("Database error: " + error.message);
+                    } else {
+                        console.log("📥 Tasks loaded:", data);
+                        this.todos = data || [];
+                    }
                 },
 
                 async addTodo() {
                     if (!this.newTodo.trim()) return;
+                    this.isSubmitting = true;
+                    console.log("📤 Attempting to add task:", this.newTodo);
 
                     let taskText = this.newTodo;
                     let category = 'General';
@@ -120,26 +115,37 @@
                         taskText = taskText.replace(hashMatch[0], '').trim();
                     }
 
-                    const { data } = await supabase.from('todos').insert([{ 
+                    const { data, error } = await supabaseClient.from('todos').insert([{ 
                         task: taskText, 
                         category: category,
                         is_completed: false 
                     }]).select();
 
-                    if (data) {
+                    if (error) {
+                        console.error("❌ Error adding task:", error.message, error.details);
+                        alert("Failed to add task: " + error.message);
+                    } else if (data) {
+                        console.log("✅ Task added successfully:", data[0]);
                         this.todos.unshift(data[0]);
                         this.newTodo = '';
                     }
+                    this.isSubmitting = false;
                 },
 
                 async toggleTodo(todo) {
-                    todo.is_completed = !todo.is_completed;
-                    await supabase.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id);
+                    const newState = !todo.is_completed;
+                    todo.is_completed = newState;
+                    console.log("🔄 Toggling task:", todo.id, "to", newState);
+                    
+                    const { error } = await supabaseClient.from('todos').update({ is_completed: newState }).eq('id', todo.id);
+                    if (error) console.error("❌ Toggle error:", error.message);
                 },
 
                 async deleteTodo(id) {
+                    console.log("🗑 Deleting task:", id);
                     this.todos = this.todos.filter(t => t.id !== id);
-                    await supabase.from('todos').delete().eq('id', id);
+                    const { error } = await supabaseClient.from('todos').delete().eq('id', id);
+                    if (error) console.error("❌ Delete error:", error.message);
                 }
             }
         }
