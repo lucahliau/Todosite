@@ -1,11 +1,70 @@
-// 1. The HTML Template (Centered Modal)
+// 1. Define the Logic Function FIRST (so it's ready when HTML arrives)
+window.settingsModal = function() {
+    return {
+        isOpen: false,
+        permission: 'default',
+        statusMsg: '',
+
+        init() {
+            this.isOpen = false;
+            
+            // Check existing permission status
+            if ('Notification' in window) {
+                this.permission = Notification.permission;
+                this.statusMsg = this.permission === 'granted' ? 'Notifications Active' : 'Tap to enable';
+            }
+
+            // Listen for the open signal
+            window.addEventListener('open-settings', () => {
+                this.isOpen = true;
+            });
+        },
+
+        async toggleNotifications() {
+            if (!('Notification' in window)) {
+                alert("This browser does not support notifications.");
+                return;
+            }
+
+            if (this.permission === 'granted') {
+                alert("You are already subscribed!");
+                return;
+            }
+
+            if (this.permission === 'denied') {
+                alert("Notifications are blocked. Please go to iPhone Settings > Web Apps > To do to enable them.");
+                return;
+            }
+
+            try {
+                this.statusMsg = "Requesting...";
+                const result = await Notification.requestPermission();
+                this.permission = result;
+                
+                if (result === 'granted') {
+                    this.statusMsg = "✅ Subscribed!";
+                    // TODO: Sync token to database here
+                } else {
+                    this.statusMsg = "❌ Denied";
+                }
+            } catch (error) {
+                console.error(error);
+                this.statusMsg = "Error requesting permission";
+            }
+        }
+    }
+}
+
+// 2. The HTML Template (Centered, High Z-Index, Hidden by Default)
 const settingsTemplate = `
-<div x-data="settingsModal()" x-teleport="body">
+<div x-data="settingsModal()">
     <div x-show="isOpen" 
+         style="display: none;"
          x-transition.opacity 
-         class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+         class="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center px-6">
 
         <div x-show="isOpen" 
+             style="display: none;"
              @click.outside="isOpen = false"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 scale-95"
@@ -13,9 +72,9 @@ const settingsTemplate = `
              x-transition:leave="transition ease-in duration-100"
              x-transition:leave-start="opacity-100 scale-100"
              x-transition:leave-end="opacity-0 scale-95"
-             class="relative bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl overflow-hidden">
+             class="relative bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
 
-             <button @click="isOpen = false" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors">
+             <button @click="isOpen = false" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors active:scale-90">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
 
@@ -48,63 +107,5 @@ const settingsTemplate = `
 </div>
 `;
 
-// 2. Inject HTML
+// 3. Inject HTML LAST
 document.body.insertAdjacentHTML('beforeend', settingsTemplate);
-
-// 3. Logic
-function settingsModal() {
-    return {
-        isOpen: false,
-        permission: 'default',
-        statusMsg: '',
-
-        init() {
-            // Default state is CLOSED
-            this.isOpen = false;
-            
-            // Check current status
-            if ('Notification' in window) {
-                this.permission = Notification.permission;
-                this.statusMsg = this.permission === 'granted' ? 'Notifications Active' : 'Tap toggle to enable';
-            }
-
-            // Listen for the trigger from index.html
-            window.addEventListener('open-settings', () => {
-                this.isOpen = true;
-            });
-        },
-
-        async toggleNotifications() {
-            if (!('Notification' in window)) {
-                alert("This browser does not support notifications.");
-                return;
-            }
-
-            if (this.permission === 'granted') {
-                alert("You are already subscribed to daily updates.");
-                return;
-            }
-
-            if (this.permission === 'denied') {
-                alert("You have blocked notifications. Please go to iPhone Settings > Web Apps > To do > Notifications to enable them.");
-                return;
-            }
-
-            try {
-                this.statusMsg = "Requesting...";
-                const result = await Notification.requestPermission();
-                this.permission = result;
-                
-                if (result === 'granted') {
-                    this.statusMsg = "✅ Subscribed!";
-                    // Here we will eventually add the code to save the token to Supabase
-                } else {
-                    this.statusMsg = "❌ Permission Denied";
-                }
-            } catch (error) {
-                console.error(error);
-                this.statusMsg = "Error requesting permission";
-            }
-        }
-    }
-}
