@@ -109,12 +109,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Appearance</h3>
                         <div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
                             <button @click="setTheme('light')" 
-                                    class="flex-1 py-3 rounded-xl text-sm font-bold transition-all" 
+                                    class="flex-1 py-2 rounded-xl text-sm font-bold transition-all" 
                                     :class="!darkMode ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-300'">
                                 Light
                             </button>
                             <button @click="setTheme('dark')" 
-                                    class="flex-1 py-3 rounded-xl text-sm font-bold transition-all" 
+                                    class="flex-1 py-2 rounded-xl text-sm font-bold transition-all" 
                                     :class="darkMode ? 'bg-slate-700 shadow-sm text-white' : 'text-slate-500 hover:text-slate-300'">
                                 Dark
                             </button>
@@ -122,10 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div>
-                        <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Data Management</h3>
+                        <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Archive Tasks</h3>
                         <div class="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-3xl overflow-hidden">
                             
-                            <button @click="openArchive()" class="w-full flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group">
+                            <button @click="openArchive()" class="w-full flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group border-b border-slate-200 dark:border-slate-800 last:border-0">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
@@ -138,21 +138,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <svg class="w-5 h-5 text-slate-300 dark:text-slate-600 group-active:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
 
-                            <div class="h-px bg-slate-200 dark:bg-slate-700/50 mx-5"></div>
-
-                            <div class="w-full flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <div class="w-full flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-200 dark:border-slate-800 last:border-0">
                                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Clear Completed Items</span>
                                 <button @click="triggerArchiveCompleted()" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors active:scale-95">
                                     Clear
                                 </button>
                             </div>
 
-                            <div class="h-px bg-slate-200 dark:bg-slate-700/50 mx-5"></div>
-
                             <div class="w-full flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Clean Up Old Tasks (>30d)</span>
                                 <button @click="triggerArchiveOld()" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors active:scale-95">
-                                    Run
+                                    Clear
                                 </button>
                             </div>
                         </div>
@@ -180,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="text-center pt-4">
-                        <p class="text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">Version 1.2.1</p>
+                        <p class="text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">Version 1.2.2</p>
                     </div>
                 </div>
             </div>
