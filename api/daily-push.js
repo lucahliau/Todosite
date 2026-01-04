@@ -79,7 +79,7 @@ export default async function handler(request, response) {
 
         // 7. Send Notification Payload
         const notificationPayload = JSON.stringify({
-            title: 'You have ${count} tasks to complete.' , // Updated Title
+            title: `You have ${count} tasks.`, // Updated Title
             body: messageBody.trim()
         });
 
