@@ -43,7 +43,7 @@ body {
     animation: pulse-green 2s infinite; 
 }
 
-/* Updated Pull-to-Refresh: Forced full-width and centering */
+/* PTR Centering: Forces the container to span 100% of the screen width */
 .ptr-element { 
     width: 100% !important;
     height: 0px; 
@@ -54,7 +54,6 @@ body {
     justify-content: center; 
     position: relative;
     left: 0;
-    right: 0;
 }
 
 .ptr-active .ptr-element { 
