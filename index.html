@@ -30,6 +30,9 @@
     <style>
         [x-cloak] { display: none !important; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+        /* Hide scrollbar for category list */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 
@@ -72,7 +75,11 @@
                 <button @click="window.dispatchEvent(new CustomEvent('open-settings'))" class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl shadow-sm active:scale-95 transition-all">
                     <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </button>
-                <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
+                <button @click="showFilters = !showFilters" 
+                        class="px-4 py-2 border rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
+                        :class="showFilters ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-900'">
+                    Filters
+                </button>
             </div>
         </header>
 
@@ -101,21 +108,49 @@
             </div>
         </section>
 
-        <div x-show="showFilters" x-collapse class="mb-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-xl grid grid-cols-2 gap-4">
+        <div x-show="showFilters" x-collapse class="mb-8 bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6">
+            
             <div>
-                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-[0.2em]">View</label>
-                <select x-model="filterStatus" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-semibold border-none outline-none">
-                    <option value="all">All Tasks</option>
-                    <option value="active">Active Only</option>
-                    <option value="completed">Completed</option>
-                </select>
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">View</label>
+                <div class="flex p-1 bg-slate-100 rounded-xl">
+                    <button @click="filterStatus = 'all'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'all' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'">All</button>
+                    <button @click="filterStatus = 'active'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'active' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'">Active</button>
+                    <button @click="filterStatus = 'completed'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'completed' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'">Done</button>
+                </div>
             </div>
-            <div>
-                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-[0.2em]">Sort</label>
-                <select x-model="sortBy" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-semibold border-none outline-none">
-                    <option value="newest">Recent</option>
-                    <option value="importance">Priority</option>
-                </select>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Sort By</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="sortBy = 'newest'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'newest' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Recent</button>
+                        <button @click="sortBy = 'deadline'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'deadline' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Urgent</button>
+                        <button @click="sortBy = 'importance'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'importance' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Priority</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Time</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="filterDeadline = 'all'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'all' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">All</button>
+                        <button @click="filterDeadline = 'scheduled'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'scheduled' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Scheduled</button>
+                        <button @click="filterDeadline = 'anytime'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'anytime' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Anytime</button>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="uniqueCategories.length > 0">
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Tags</label>
+                <div class="flex flex-wrap gap-2">
+                    <button @click="filterCategory = 'all'" class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all" :class="filterCategory === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-400'">All</button>
+                    <template x-for="cat in uniqueCategories" :key="cat">
+                        <button @click="filterCategory = filterCategory === cat ? 'all' : cat" 
+                                class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all"
+                                :class="filterCategory === cat ? getTagColor(cat) + ' ring-2 ring-offset-1 ring-current' : 'bg-white border-slate-200 text-slate-400'"
+                                x-text="'#' + cat">
+                        </button>
+                    </template>
+                </div>
             </div>
         </div>
 

@@ -15,8 +15,13 @@ window.todoApp = function() {
         showFilters: false,
         activeTodo: null,
         inputFocused: false,
-        filterStatus: 'all',
-        sortBy: 'newest',
+        
+        // --- Updated Filter States ---
+        filterStatus: 'all',      // 'all', 'active', 'completed'
+        sortBy: 'newest',         // 'newest', 'importance', 'deadline'
+        filterDeadline: 'all',    // 'all', 'scheduled', 'anytime'
+        filterCategory: 'all',    // 'all', 'Work', etc.
+        
         editingDesc: false,
         isSyncing: false,
         startY: 0,
@@ -70,7 +75,6 @@ window.todoApp = function() {
             return deadline.toLocaleDateString('en-US', options);
         },
 
-        // Helper to capitalize first letter
         capitalize(str) {
             if (!str) return "";
             return str.charAt(0).toUpperCase() + str.slice(1);
@@ -177,17 +181,59 @@ window.todoApp = function() {
             } 
         },
 
-        get activeTasks() { return this.sortItems(this.todos.filter(t => !t.is_completed)); },
-        get completedTasks() { return this.sortItems(this.todos.filter(t => t.is_completed)); },
-        sortItems(items) { 
+        // --- Updated Getters & Sort Logic ---
+        
+        get activeTasks() { 
+            const items = this.todos.filter(t => !t.is_completed);
+            return this.applyFiltersAndSort(items); 
+        },
+        
+        get completedTasks() { 
+            const items = this.todos.filter(t => t.is_completed);
+            return this.applyFiltersAndSort(items); 
+        },
+
+        applyFiltersAndSort(items) {
+            // 1. Filter by Deadline Presence
+            if (this.filterDeadline === 'scheduled') {
+                items = items.filter(t => t.deadline);
+            } else if (this.filterDeadline === 'anytime') {
+                items = items.filter(t => !t.deadline);
+            }
+
+            // 2. Filter by Category
+            if (this.filterCategory !== 'all') {
+                items = items.filter(t => t.category === this.filterCategory);
+            }
+
+            // 3. Sort
             return items.sort((a, b) => { 
-                if (this.sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at); 
-                if (this.sortBy === 'importance') return b.importance - a.importance; 
-                return 0; 
+                // Sort by Deadline (Urgent)
+                if (this.sortBy === 'deadline') {
+                    if (a.deadline && !b.deadline) return -1; // a comes first
+                    if (!a.deadline && b.deadline) return 1;  // b comes first
+                    if (a.deadline && b.deadline) {
+                        return new Date(a.deadline) - new Date(b.deadline); // Earliest first
+                    }
+                    // Fallback to importance if no deadlines
+                    return b.importance - a.importance;
+                }
+                
+                // Sort by Priority
+                if (this.sortBy === 'importance') {
+                    if (b.importance !== a.importance) return b.importance - a.importance;
+                    // Fallback to deadline if importance is same
+                    if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+                }
+
+                // Default: Newest Created
+                return new Date(b.created_at) - new Date(a.created_at); 
             }); 
         },
+
         get uniqueCategories() { return [...new Set(this.todos.map(t => t.category).filter(c => c && c !== 'General'))].sort(); },
         applyCategory(cat) { this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat; },
+        
         getTagColor(category) {
             const colors = ['bg-blue-50 text-blue-600', 'bg-indigo-50 text-indigo-600', 'bg-emerald-50 text-emerald-600', 'bg-rose-50 text-rose-600', 'bg-amber-50 text-amber-600', 'bg-cyan-50 text-cyan-600', 'bg-pink-50 text-pink-600', 'bg-violet-50 text-violet-600', 'bg-lime-50 text-lime-600', 'bg-orange-50 text-orange-600', 'bg-teal-50 text-teal-600', 'bg-fuchsia-50 text-fuchsia-600', 'bg-sky-50 text-sky-600', 'bg-slate-100 text-slate-600', 'bg-purple-50 text-purple-600', 'bg-red-50 text-red-600', 'bg-green-50 text-green-600', 'bg-zinc-100 text-zinc-600', 'bg-neutral-100 text-neutral-600', 'bg-stone-100 text-stone-600'];
             let hash = 0; for (let i = 0; i < (category || '').length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
