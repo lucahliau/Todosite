@@ -10,7 +10,7 @@ window.todoApp = function() {
         newTodo: '',
         newDescription: '',
         newImportance: '2',
-        newDeadline: '', // NEW
+        newDeadline: '',
         isOnline: navigator.onLine,
         showFilters: false,
         activeTodo: null,
@@ -31,19 +31,35 @@ window.todoApp = function() {
             if (cached) this.todos = JSON.parse(cached);
             this.fetchTodos();
             this.syncPending();
+            
+            // Initial badge update
+            this.updateBadgeCount();
         },
 
-        // Deadline Helpers
+        // --- NEW: Badge Logic ---
+        updateBadgeCount() {
+            if (!('setAppBadge' in navigator)) return;
+
+            // Rule: Incomplete AND (Has deadline OR High Priority)
+            const count = this.todos.filter(t => 
+                !t.is_completed && (t.deadline || t.importance == 3)
+            ).length;
+
+            if (count > 0) {
+                navigator.setAppBadge(count).catch(err => console.error(err));
+            } else {
+                navigator.clearAppBadge().catch(err => console.error(err));
+            }
+        },
+
         getDeadlineColor(dateStr, type) {
             if (!dateStr) return '';
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const deadline = new Date(dateStr);
             deadline.setHours(0, 0, 0, 0);
-            
             const diffTime = deadline - today;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
             if (diffDays < 0) return type === 'text' ? 'text-rose-600' : 'bg-rose-50';
             if (diffDays <= 5) return type === 'text' ? 'text-orange-500' : 'bg-orange-50';
             return type === 'text' ? 'text-emerald-600' : 'bg-emerald-50';
@@ -74,6 +90,7 @@ window.todoApp = function() {
                 const serverTasks = data.map(t => this.sanitizeTodo(t));
                 this.todos = [...pendingTasks, ...serverTasks];
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                this.updateBadgeCount(); // Update badge after fetch
             }
         },
 
@@ -88,7 +105,7 @@ window.todoApp = function() {
                         description: task.description || '', 
                         category: task.category || 'General', 
                         importance: task.importance || 2, 
-                        deadline: task.deadline || null, // SYNC DEADLINE
+                        deadline: task.deadline || null,
                         is_completed: task.is_completed || false, 
                         subtasks: task.subtasks || [] 
                     }]).select();
@@ -99,6 +116,7 @@ window.todoApp = function() {
                     }
                 }
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                this.updateBadgeCount(); // Update badge after sync
             } finally { 
                 this.isSyncing = false; 
                 if (this.todos.some(t => t.isPending)) this.syncPending(); 
@@ -117,7 +135,7 @@ window.todoApp = function() {
                 description: this.newDescription || '', 
                 category: category, 
                 importance: parseInt(this.newImportance), 
-                deadline: this.newDeadline || null, // ADD DEADLINE
+                deadline: this.newDeadline || null,
                 is_completed: false, 
                 isPending: true, 
                 created_at: new Date().toISOString(), 
@@ -127,26 +145,29 @@ window.todoApp = function() {
             this.todos.unshift(newObj);
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.newTodo = ''; this.newDescription = ''; this.newDeadline = ''; this.inputFocused = false;
+            this.updateBadgeCount(); // Update badge after adding
             if (this.isOnline) this.syncPending();
         },
 
         async toggleTodo(todo) { 
             todo.is_completed = !todo.is_completed; 
-            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            this.updateBadgeCount(); // Update badge after toggle
             if (this.isOnline && !todo.isPending) {
                 await window.supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id); 
             }
         },
 
         async updateMainTask(todo) { 
-            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            this.updateBadgeCount(); // Update badge after update
             if (this.isOnline && !todo.isPending) { 
                 await window.supabaseClient.from('todos').update({ 
                     task: todo.task, 
                     description: todo.description, 
                     category: todo.category, 
                     importance: todo.importance,
-                    deadline: todo.deadline // UPDATE DEADLINE
+                    deadline: todo.deadline
                 }).eq('id', todo.id); 
             } 
         },
@@ -154,7 +175,8 @@ window.todoApp = function() {
         async deleteTodo(id) { 
             if (confirm("Delete this task?")) { 
                 this.todos = this.todos.filter(t => t.id !== id); 
-                localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+                localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                this.updateBadgeCount(); // Update badge after delete
                 if (this.isOnline && !id.toString().startsWith('temp')) {
                     await window.supabaseClient.from('todos').delete().eq('id', id); 
                 }
