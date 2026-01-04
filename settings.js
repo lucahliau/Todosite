@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 </div>
 
-                <div class="px-8 pb-10 overflow-y-auto no-scrollbar space-y-12">
+                <div class="px-8 pb-3 overflow-y-auto no-scrollbar space-y-6">
                     
                     <div>
                         <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Appearance</h3>
