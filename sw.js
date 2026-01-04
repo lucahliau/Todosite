@@ -1,10 +1,10 @@
 // sw.js
-const CACHE_NAME = 'todo-shell-v6'; // Version bumped to force update
+const CACHE_NAME = 'todo-shell-v7'; // Bumped version for layout fix
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/style.css',   // Corrected filename (singular)
+  '/style.css',
   '/app.js',
   '/settings.js',
   '/config.js',
@@ -24,7 +24,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Use Promise.all to cache robustly
       return Promise.all(
         STATIC_ASSETS.map(url => {
           return cache.add(url).catch(err => console.error('Failed to cache:', url, err));
@@ -51,8 +50,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // 1. Navigation Strategy (HTML)
-  // If the browser requests a page navigation, return index.html from cache.
-  // This fixes the "No Internet" error when opening the app offline.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('/index.html').then((cached) => {
@@ -64,12 +61,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Ignore Supabase API (handled by app.js logic)
+  // 2. Ignore Supabase API
   if (url.hostname.includes('supabase.co')) {
     return; 
   }
 
-  // 3. Asset Strategy (Stale-While-Revalidate / Cache First)
+  // 3. Asset Strategy
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;

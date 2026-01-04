@@ -17,9 +17,7 @@
     <script>
         tailwind.config = { darkMode: 'class' } 
     </script>
-    
     <link rel="stylesheet" href="style.css">
-    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -175,7 +173,7 @@
                     <div class="space-y-2">
                         <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
                             <div class="flex items-start justify-between">
-                                <div class="flex items-start space-x-4 flex-1">
+                                <div class="flex items-start gap-4 flex-1">
                                     <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center border-slate-200 dark:border-slate-700 hover:border-slate-400 shrink-0">
                                         <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                     </button>
@@ -212,10 +210,10 @@
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
                 <template x-for="todo in completedTasks" :key="todo.id">
                     <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm opacity-50 grayscale transition-all">
-                        <div class="flex items-start space-x-4">
-                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black dark:bg-white flex items-center justify-center transition-all"><svg class="w-4 h-4 text-white dark:text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                        <div class="flex items-start gap-4">
+                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black dark:bg-white flex items-center justify-center transition-all shrink-0"><svg class="w-4 h-4 text-white dark:text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                             <h3 class="font-bold text-slate-500 dark:text-slate-400 line-through flex-1" x-text="todo.task"></h3>
-                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 dark:text-slate-700 hover:text-red-500"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
+                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 dark:text-slate-700 hover:text-red-500 shrink-0"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
                         </div>
                     </div>
                 </template>
