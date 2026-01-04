@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="To do">
-    
+
     <link rel="manifest" href='data:application/manifest+json,{"name":"To do","short_name":"To do","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#000000","icons":[{"src":"/icon.jpg","sizes":"512x512","type":"image/jpg"}]}'>
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,7 +29,10 @@
 
     <style>
         [x-cloak] { display: none !important; }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -57,11 +60,16 @@
                         <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
                         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
                     </div>
+                    <span class="text-slate-300 text-xs">•</span>
+                    <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })"></p>
                 </div>
             </div>
+            
             <div class="flex space-x-2">
-                <button @click="window.dispatchEvent(new CustomEvent('open-settings'))" class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl shadow-sm"><svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
-                <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold">Filters</button>
+                <button @click="window.dispatchEvent(new CustomEvent('open-settings'))" class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl shadow-sm active:scale-95 transition-all">
+                    <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </button>
+                <button @click="showFilters = !showFilters" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95">Filters</button>
             </div>
         </header>
 
@@ -72,42 +80,117 @@
                     <textarea x-model="newDescription" placeholder="Description..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
                     <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
                         <div class="flex items-center space-x-2">
-                            <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select>
+                            <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none">
+                                <option value="1">Low</option>
+                                <option value="2">Medium</option>
+                                <option value="3">High</option>
+                            </select>
                             <input type="date" x-model="newDeadline" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none text-slate-500">
                         </div>
                         <button @click="addTodo()" class="bg-black text-white px-6 py-2 rounded-2xl text-sm font-bold active:scale-95">Create</button>
                     </div>
                 </div>
             </div>
+            <div x-show="inputFocused && uniqueCategories.length > 0" x-transition class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 px-1">
+                <template x-for="cat in uniqueCategories" :key="cat">
+                    <button @click="applyCategory(cat)" :class="getTagColor(cat)" class="px-3 py-1.5 rounded-full shadow-sm text-[11px] font-bold whitespace-nowrap" x-text="'#' + cat"></button>
+                </template>
+            </div>
         </section>
+
+        <div x-show="showFilters" x-collapse class="mb-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-xl grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-[0.2em]">View</label>
+                <select x-model="filterStatus" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-semibold border-none outline-none">
+                    <option value="all">All Tasks</option>
+                    <option value="active">Active Only</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-[0.2em]">Sort</label>
+                <select x-model="sortBy" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-semibold border-none outline-none">
+                    <option value="newest">Recent</option>
+                    <option value="importance">Priority</option>
+                </select>
+            </div>
+        </div>
 
         <main class="space-y-12">
             <div x-show="filterStatus !== 'completed'" class="space-y-6">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
                 <template x-for="todo in activeTasks" :key="todo.id">
                     <div class="space-y-2">
-                        <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
+                        <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
                             <div class="flex items-start justify-between">
                                 <div class="flex items-start space-x-4 flex-1">
-                                    <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center border-slate-200">
+                                    <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center border-slate-200 hover:border-slate-400">
                                         <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                     </button>
                                     <div class="flex-1 cursor-pointer min-w-0" @click="openReadMode(todo)">
                                         <h3 class="font-bold text-slate-800 text-[16px]" x-text="todo.task"></h3>
+                                        <div x-show="todo.description" class="markdown-content text-sm text-slate-400 mt-1 line-clamp-1" x-html="marked.parse(todo.description || '')"></div>
                                         <div class="flex items-center space-x-2 mt-2">
                                             <span class="text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
+                                            <div class="flex items-center space-x-1.5 bg-slate-100 px-2 py-1 rounded-md border border-slate-200/50">
+                                                <div class="w-1.5 h-1.5 rounded-full" :class="todo.importance == 3 ? 'bg-rose-500' : (todo.importance == 2 ? 'bg-amber-400' : 'bg-emerald-500')"></div>
+                                                <span class="text-[9px] font-black uppercase text-slate-400 tracking-tight">Priority</span>
+                                            </div>
                                             <template x-if="todo.deadline">
-                                                <div class="flex items-center space-x-1.5 px-2 py-1 rounded-md border border-slate-200/50 bg-white"><span class="text-[9px] font-black uppercase tracking-tight" :class="getDeadlineColor(todo.deadline, 'text')" x-text="formatDeadline(todo.deadline)"></span></div>
+                                                <div class="flex items-center space-x-1.5 px-2 py-1 rounded-md border border-slate-200/50 bg-white shadow-sm">
+                                                    <svg class="w-3 h-3" :class="getDeadlineColor(todo.deadline, 'text')" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                    <span class="text-[9px] font-black uppercase tracking-tight" :class="getDeadlineColor(todo.deadline, 'text')" x-text="formatDeadline(todo.deadline)"></span>
+                                                </div>
                                             </template>
                                         </div>
                                     </div>
                                 </div>
+                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
                             </div>
                         </div>
                     </div>
                 </template>
             </div>
+
+            <div x-show="filterStatus !== 'active' && completedTasks.length > 0" class="space-y-4 pt-10 border-t border-slate-100">
+                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
+                <template x-for="todo in completedTasks" :key="todo.id">
+                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm opacity-50 grayscale transition-all">
+                        <div class="flex items-start space-x-4">
+                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black flex items-center justify-center transition-all"><svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                            <h3 class="font-bold text-slate-500 line-through flex-1" x-text="todo.task"></h3>
+                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </main>
+
+        <template x-teleport="body">
+            <div x-show="activeTodo" class="fixed inset-0 z-50 flex flex-col justify-end">
+                <div x-show="activeTodo" x-transition.opacity @click="closeReadMode()" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+                <div x-show="activeTodo" x-transition:enter="transition ease-out duration-300 transform translate-y-0" x-transition:enter-start="translate-y-full" class="overscroll-contain relative bg-white w-full max-h-[90vh] rounded-t-[40px] shadow-2xl overflow-y-auto p-8 no-scrollbar flex flex-col">
+                    <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" @click="closeReadMode()"></div>
+                    <div x-if="activeTodo" class="flex-1 overflow-y-auto">
+                        <input type="text" x-model="activeTodo.task" @blur="updateMainTask(activeTodo)" class="w-full text-3xl font-bold text-slate-900 border-none p-0 focus:ring-0 mb-6 bg-transparent">
+                        
+                        <div class="flex flex-wrap gap-3 mb-8">
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Category</label><input type="text" x-model="activeTodo.category" @blur="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"></div>
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Priority</label><select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></div>
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Deadline</label><input type="date" x-model="activeTodo.deadline" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"></div>
+                        </div>
+
+                        <div class="mb-8">
+                             <div class="flex justify-between items-center mb-3"><h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Context</h4><button @click="editingDesc = !editingDesc" class="text-[10px] font-bold uppercase text-blue-500" x-text="editingDesc ? 'Done' : 'Edit'"></button></div>
+                             <div x-show="!editingDesc" @click="editingDesc = true" class="markdown-content text-[16px] text-slate-600 leading-relaxed min-h-[40px] cursor-pointer" x-html="activeTodo.description ? marked.parse(activeTodo.description) : '<span class=\'text-slate-300 italic\'>Add context...</span>'"></div>
+                             <textarea x-show="editingDesc" x-model="activeTodo.description" @blur="updateMainTask(activeTodo)" class="w-full h-40 bg-slate-50 border-none rounded-xl p-4 text-sm focus:ring-black" placeholder="Markdown..."></textarea>
+                        </div>
+                        
+                        <button @click="closeReadMode()" class="w-full mt-8 bg-slate-100 text-slate-500 py-4 rounded-2xl font-bold mb-10">Close</button>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 </body>
 </html>
