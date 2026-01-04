@@ -7,20 +7,26 @@ if (typeof SUPABASE_CONFIG !== 'undefined') {
 window.todoApp = function() {
     return {
         todos: [],
+        archivedTodos: [],
         newTodo: '',
         newDescription: '',
         newImportance: '2',
         newDeadline: '',
+        searchQuery: '', // New Search State
+        
+        // App State
         isOnline: navigator.onLine,
         showFilters: false,
+        showArchive: false, // New Archive Modal State
         activeTodo: null,
         inputFocused: false,
+        darkMode: localStorage.getItem('theme') === 'dark',
         
-        // --- Filter States ---
-        filterStatus: 'all',      // 'all', 'active', 'completed'
-        sortBy: 'newest',         // 'newest', 'importance', 'deadline'
-        filterDeadline: 'all',    // 'all', 'scheduled', 'anytime'
-        filterCategory: 'all',    // 'all', 'Work', etc.
+        // Filter States
+        filterStatus: 'all',
+        sortBy: 'newest',
+        filterDeadline: 'all',
+        filterCategory: 'all',
         
         editingDesc: false,
         isSyncing: false,
@@ -30,8 +36,20 @@ window.todoApp = function() {
 
         async init() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
+            
+            // Apply Dark Mode immediately
+            if (this.darkMode) document.documentElement.classList.add('dark');
+            
+            // Listeners
             window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); this.fetchTodos(); });
             window.addEventListener('offline', () => { this.isOnline = false; });
+            
+            // Settings Events
+            window.addEventListener('toggle-dark-mode', () => this.toggleDarkMode());
+            window.addEventListener('open-archive', () => { this.showArchive = true; this.fetchArchive(); });
+            window.addEventListener('archive-completed', () => this.archiveCompletedTasks());
+            window.addEventListener('archive-old', () => this.archiveOldTasks());
+
             const cached = localStorage.getItem('todo_cache');
             if (cached) {
                 this.todos = JSON.parse(cached);
@@ -41,16 +59,169 @@ window.todoApp = function() {
             this.syncPending();
         },
 
+        toggleDarkMode() {
+            this.darkMode = !this.darkMode;
+            localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
+            if (this.darkMode) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        },
+
         updateBadgeCount() {
             if (!('setAppBadge' in navigator)) return;
             const count = this.todos.filter(t => 
                 !t.is_completed && (t.deadline || parseInt(t.importance) === 3)
             ).length;
-            if (count > 0) {
-                navigator.setAppBadge(count).catch(() => {});
-            } else {
-                navigator.clearAppBadge().catch(() => {});
+            if (count > 0) navigator.setAppBadge(count).catch(() => {});
+            else navigator.clearAppBadge().catch(() => {});
+        },
+
+        // --- Fetching ---
+
+        async fetchTodos() {
+            if (!this.isOnline || !window.supabaseClient) return;
+            // Filter out deleted tasks
+            const { data, error } = await window.supabaseClient
+                .from('todos')
+                .select('*')
+                .eq('is_deleted', false) 
+                .order('created_at', { ascending: false });
+                
+            if (!error && data) {
+                this.todos = data.map(t => this.sanitizeTodo(t));
+                localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                this.updateBadgeCount();
             }
+        },
+
+        async fetchArchive() {
+            if (!this.isOnline || !window.supabaseClient) return;
+            const { data, error } = await window.supabaseClient
+                .from('todos')
+                .select('*')
+                .eq('is_deleted', true)
+                .order('created_at', { ascending: false });
+                
+            if (!error && data) {
+                this.archivedTodos = data.map(t => this.sanitizeTodo(t));
+            }
+        },
+
+        // --- Actions ---
+
+        async addTodo() {
+            if (!this.newTodo.trim()) return;
+            let taskText = this.capitalize(this.newTodo), category = null;
+            const hashMatch = taskText.match(/#(\w+)/);
+            if (hashMatch) { category = hashMatch[1]; taskText = taskText.replace(hashMatch[0], '').trim(); }
+            
+            const newObj = { 
+                id: 'temp-' + Date.now(), 
+                task: taskText, 
+                description: this.newDescription || '', 
+                category: category, 
+                importance: parseInt(this.newImportance), 
+                deadline: this.newDeadline || null, 
+                is_completed: false, 
+                isPending: true, 
+                is_deleted: false, // Default
+                created_at: new Date().toISOString(), 
+                subtasks: [] 
+            };
+            this.todos.unshift(newObj);
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            this.newTodo = ''; this.newDescription = ''; this.newDeadline = ''; this.inputFocused = false;
+            this.updateBadgeCount();
+            if (this.isOnline) this.syncPending();
+        },
+
+        async deleteTodo(id) { 
+            // Soft Delete: Move to Archive
+            if (confirm("Move this task to archive?")) { 
+                // Remove from local active list
+                this.todos = this.todos.filter(t => t.id !== id);
+                localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+                this.updateBadgeCount();
+
+                if (this.isOnline && !id.toString().startsWith('temp')) {
+                    await window.supabaseClient.from('todos').update({ is_deleted: true }).eq('id', id);
+                }
+            } 
+        },
+
+        async restoreTodo(todo) {
+            // Move from Archive back to Active
+            this.archivedTodos = this.archivedTodos.filter(t => t.id !== todo.id);
+            todo.is_deleted = false;
+            this.todos.unshift(todo); // Add back to local list
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            
+            if (this.isOnline) {
+                await window.supabaseClient.from('todos').update({ is_deleted: false }).eq('id', todo.id);
+            }
+        },
+
+        async permanentDelete(id) {
+            if (confirm("Permanently delete this task? This cannot be undone.")) {
+                this.archivedTodos = this.archivedTodos.filter(t => t.id !== id);
+                if (this.isOnline) {
+                    await window.supabaseClient.from('todos').delete().eq('id', id);
+                }
+            }
+        },
+
+        async archiveCompletedTasks() {
+            if (!confirm("Move all completed tasks to archive?")) return;
+            
+            // 1. Identify tasks to archive
+            const completed = this.todos.filter(t => t.is_completed);
+            const completedIds = completed.map(t => t.id);
+
+            // 2. Remove from local view
+            this.todos = this.todos.filter(t => !t.is_completed);
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            
+            // 3. Update DB
+            if (this.isOnline && completedIds.length > 0) {
+                await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', completedIds);
+            }
+            alert("Completed tasks archived.");
+        },
+
+        async archiveOldTasks() {
+            if (!confirm("Archive tasks created more than 4 weeks ago?")) return;
+
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 28); // 4 weeks
+
+            // 1. Identify tasks
+            const oldTasks = this.todos.filter(t => new Date(t.created_at) < cutoff);
+            const oldIds = oldTasks.map(t => t.id);
+
+            if (oldIds.length === 0) { alert("No old tasks found."); return; }
+
+            // 2. Remove local
+            this.todos = this.todos.filter(t => !oldIds.includes(t.id));
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+
+            // 3. Update DB
+            if (this.isOnline) {
+                await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', oldIds);
+            }
+            alert(`${oldIds.length} old tasks archived.`);
+        },
+
+        // --- Helpers ---
+
+        sanitizeTodo(t) { 
+            return { 
+                ...t, 
+                isPending: t.isPending || false, 
+                description: t.description || '', 
+                category: t.category || null,
+                deadline: t.deadline || null, 
+                is_deleted: t.is_deleted || false,
+                subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] 
+            }; 
         },
 
         getDeadlineColor(dateStr, type) {
@@ -61,9 +232,9 @@ window.todoApp = function() {
             deadline.setHours(0, 0, 0, 0);
             const diffTime = deadline - today;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays < 0) return type === 'text' ? 'text-rose-600' : 'bg-rose-50';
-            if (diffDays <= 5) return type === 'text' ? 'text-orange-500' : 'bg-orange-50';
-            return type === 'text' ? 'text-emerald-600' : 'bg-emerald-50';
+            if (diffDays < 0) return type === 'text' ? 'text-rose-600' : 'bg-rose-50 dark:bg-rose-900/30 dark:text-rose-400';
+            if (diffDays <= 5) return type === 'text' ? 'text-orange-500' : 'bg-orange-50 dark:bg-orange-900/30 dark:text-orange-400';
+            return type === 'text' ? 'text-emerald-600' : 'bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400';
         },
 
         formatDeadline(dateStr) {
@@ -80,31 +251,7 @@ window.todoApp = function() {
             return str.charAt(0).toUpperCase() + str.slice(1);
         },
 
-        touchStart(e) { if (window.scrollY > 10) return; this.startY = e.touches ? e.touches[0].pageY : e.pageY; },
-        touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
-        async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
-
-        sanitizeTodo(t) { 
-            return { 
-                ...t, 
-                isPending: t.isPending || false, 
-                description: t.description || '', 
-                category: t.category || null, // Ensure null if empty
-                deadline: t.deadline || null, 
-                subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] 
-            }; 
-        },
-
-        async fetchTodos() {
-            if (!this.isOnline || !window.supabaseClient) return;
-            const { data, error } = await window.supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
-            if (!error && data) {
-                this.todos = data.map(t => this.sanitizeTodo(t));
-                localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                this.updateBadgeCount();
-            }
-        },
-
+        // Sync Pending (Updated for is_deleted)
         async syncPending() {
             if (!this.isOnline || this.isSyncing || !window.supabaseClient) return;
             this.isSyncing = true;
@@ -114,10 +261,11 @@ window.todoApp = function() {
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
                         task: this.capitalize(task.task), 
                         description: task.description || '', 
-                        category: task.category || null, // No default 'General'
+                        category: task.category || null,
                         importance: task.importance || 2, 
                         deadline: task.deadline || null, 
                         is_completed: task.is_completed || false, 
+                        is_deleted: false,
                         subtasks: task.subtasks || [] 
                     }]).select();
                     if (!error && data?.length > 0) {
@@ -133,36 +281,7 @@ window.todoApp = function() {
             }
         },
 
-        async addTodo() {
-            if (!this.newTodo.trim()) return;
-            
-            // Logic: Default category is null, not 'General'
-            let taskText = this.capitalize(this.newTodo), category = null;
-            const hashMatch = taskText.match(/#(\w+)/);
-            if (hashMatch) { 
-                category = hashMatch[1]; 
-                taskText = taskText.replace(hashMatch[0], '').trim(); 
-            }
-
-            const newObj = { 
-                id: 'temp-' + Date.now(), 
-                task: taskText, 
-                description: this.newDescription || '', 
-                category: category, 
-                importance: parseInt(this.newImportance), 
-                deadline: this.newDeadline || null, 
-                is_completed: false, 
-                isPending: true, 
-                created_at: new Date().toISOString(), 
-                subtasks: [] 
-            };
-            this.todos.unshift(newObj);
-            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-            this.newTodo = ''; this.newDescription = ''; this.newDeadline = ''; this.inputFocused = false;
-            this.updateBadgeCount();
-            if (this.isOnline) this.syncPending();
-        },
-
+        // Existing Update Functions...
         async toggleTodo(todo) { 
             todo.is_completed = !todo.is_completed; 
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
@@ -174,9 +293,7 @@ window.todoApp = function() {
 
         async updateMainTask(todo) { 
             todo.task = this.capitalize(todo.task);
-            // Handle empty category string from input
             if (todo.category === '') todo.category = null;
-            
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.updateBadgeCount();
             if (this.isOnline && !todo.isPending) { 
@@ -186,72 +303,68 @@ window.todoApp = function() {
             } 
         },
 
-        async deleteTodo(id) { 
-            if (confirm("Delete this task?")) { 
-                this.todos = this.todos.filter(t => t.id !== id); 
-                localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                this.updateBadgeCount();
-                if (this.isOnline && !id.toString().startsWith('temp')) {
-                    await window.supabaseClient.from('todos').delete().eq('id', id); 
-                }
-            } 
-        },
+        // Touch Logic
+        touchStart(e) { if (window.scrollY > 10) return; this.startY = e.touches ? e.touches[0].pageY : e.pageY; },
+        touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
+        async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
 
         // --- Getters & Sort Logic ---
         
-        get activeTasks() { 
-            const items = this.todos.filter(t => !t.is_completed);
-            return this.applyFiltersAndSort(items); 
-        },
-        
-        get completedTasks() { 
-            const items = this.todos.filter(t => t.is_completed);
-            return this.applyFiltersAndSort(items); 
+        get activeTasks() { return this.applyFiltersAndSort(this.todos.filter(t => !t.is_completed)); },
+        get completedTasks() { return this.applyFiltersAndSort(this.todos.filter(t => t.is_completed)); },
+
+        // Filtered Archive List
+        get filteredArchive() {
+            let items = this.archivedTodos;
+            if (this.searchQuery) {
+                items = items.filter(t => t.task.toLowerCase().includes(this.searchQuery.toLowerCase()));
+            }
+            return items;
         },
 
         applyFiltersAndSort(items) {
-            // 1. Filter by Deadline Presence
-            if (this.filterDeadline === 'scheduled') {
-                items = items.filter(t => t.deadline);
-            } else if (this.filterDeadline === 'anytime') {
-                items = items.filter(t => !t.deadline);
+            // 1. Search Filter (Real-time)
+            if (this.searchQuery) {
+                items = items.filter(t => t.task.toLowerCase().includes(this.searchQuery.toLowerCase()));
             }
 
-            // 2. Filter by Category
-            if (this.filterCategory !== 'all') {
-                items = items.filter(t => t.category === this.filterCategory);
-            }
+            // 2. Filter by Deadline
+            if (this.filterDeadline === 'scheduled') items = items.filter(t => t.deadline);
+            else if (this.filterDeadline === 'anytime') items = items.filter(t => !t.deadline);
 
-            // 3. Sort
+            // 3. Filter by Category
+            if (this.filterCategory !== 'all') items = items.filter(t => t.category === this.filterCategory);
+
+            // 4. Sort
             return items.sort((a, b) => { 
                 if (this.sortBy === 'deadline') {
                     if (a.deadline && !b.deadline) return -1;
                     if (!a.deadline && b.deadline) return 1;
-                    if (a.deadline && b.deadline) {
-                        return new Date(a.deadline) - new Date(b.deadline);
-                    }
+                    if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
                     return b.importance - a.importance;
                 }
-                
                 if (this.sortBy === 'importance') {
                     if (b.importance !== a.importance) return b.importance - a.importance;
                     if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
                 }
-
                 return new Date(b.created_at) - new Date(a.created_at); 
             }); 
         },
 
-        get uniqueCategories() { 
-            // Return only truthy categories (removes null, undefined, "")
-            return [...new Set(this.todos.map(t => t.category).filter(c => c))].sort(); 
-        },
-        
+        get uniqueCategories() { return [...new Set(this.todos.map(t => t.category).filter(c => c))].sort(); },
         applyCategory(cat) { this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat; },
         
         getTagColor(category) {
-            if (!category) return ''; // Handle null category
-            const colors = ['bg-blue-50 text-blue-600', 'bg-indigo-50 text-indigo-600', 'bg-emerald-50 text-emerald-600', 'bg-rose-50 text-rose-600', 'bg-amber-50 text-amber-600', 'bg-cyan-50 text-cyan-600', 'bg-pink-50 text-pink-600', 'bg-violet-50 text-violet-600', 'bg-lime-50 text-lime-600', 'bg-orange-50 text-orange-600', 'bg-teal-50 text-teal-600', 'bg-fuchsia-50 text-fuchsia-600', 'bg-sky-50 text-sky-600', 'bg-slate-100 text-slate-600', 'bg-purple-50 text-purple-600', 'bg-red-50 text-red-600', 'bg-green-50 text-green-600', 'bg-zinc-100 text-zinc-600', 'bg-neutral-100 text-neutral-600', 'bg-stone-100 text-stone-600'];
+            if (!category) return '';
+            // Added dark mode color variants
+            const colors = [
+                'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400', 
+                'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400', 
+                'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400', 
+                'bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400', 
+                'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            ];
             let hash = 0; for (let i = 0; i < category.length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
             return colors[Math.abs(hash) % colors.length];
         },

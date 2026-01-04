@@ -14,6 +14,9 @@
     <link rel="manifest" href='data:application/manifest+json,{"name":"To do","short_name":"To do","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#000000","icons":[{"src":"/icon.jpg","sizes":"512x512","type":"image/jpg"}]}'>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' } // Enable Class-based Dark Mode
+    </script>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -30,12 +33,13 @@
     <style>
         [x-cloak] { display: none !important; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+        .dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 
-<body class="bg-[#F9FBFC] text-slate-900 min-h-screen pb-20"
+<body class="bg-[#F9FBFC] dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen pb-20 transition-colors duration-300"
       x-data="todoApp()" x-init="init()"
       @touchstart="touchStart($event)" @touchmove="touchMove($event)" @touchend="touchEnd()"
       :class="pullDistance > 50 ? 'ptr-active' : ''">
@@ -55,7 +59,7 @@
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">To do</h1>
                 <div class="flex items-center space-x-2 mt-1">
-                    <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" @click="syncPending()">
+                    <div class="flex items-center space-x-2 bg-white dark:bg-slate-900 px-2 py-1 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer" @click="syncPending()">
                         <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
                         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
                     </div>
@@ -65,38 +69,38 @@
             </div>
             
             <div class="flex space-x-2">
-                <button @click="fetchTodos()" class="hidden md:flex w-9 h-9 items-center justify-center bg-white border border-slate-200 rounded-xl shadow-sm active:scale-95 transition-all">
+                <button @click="fetchTodos()" class="hidden md:flex w-9 h-9 items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm active:scale-95 transition-all">
                     <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                 </button>
 
-                <button @click="window.dispatchEvent(new CustomEvent('open-settings'))" class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl shadow-sm active:scale-95 transition-all">
+                <button @click="window.dispatchEvent(new CustomEvent('open-settings'))" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm active:scale-95 transition-all">
                     <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </button>
                 <button @click="showFilters = !showFilters" 
                         class="px-4 py-2 border rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
-                        :class="showFilters ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-900'">
+                        :class="showFilters ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100'">
                     Filters
                 </button>
             </div>
         </header>
 
         <section class="mb-8 space-y-3">
-            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm focus-within:ring-4 focus-within:ring-black/5">
-                <input type="text" x-model="newTodo" @focus="inputFocused = true" placeholder="Add task... #tag" class="w-full bg-transparent text-lg font-bold outline-none">
+            <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm focus-within:ring-4 focus-within:ring-black/5 dark:focus-within:ring-white/5 transition-colors">
+                <input type="text" x-model="newTodo" @focus="inputFocused = true" placeholder="Add task... #tag" class="w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600">
                 <div x-show="newTodo.length > 0" x-collapse>
-                    <textarea x-model="newDescription" placeholder="Add details, links, or subtasks..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
-                    <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
+                    <textarea x-model="newDescription" placeholder="Add details, links, or subtasks..." class="w-full bg-transparent text-sm text-slate-500 dark:text-slate-400 outline-none mt-3 min-h-[60px] resize-none"></textarea>
+                    <div class="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-800 mt-3">
                         <div class="flex items-center space-x-2">
-                            <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none">
+                            <select x-model="newImportance" class="bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none">
                                 <option value="1">Low</option>
                                 <option value="2">Medium</option>
                                 <option value="3">High</option>
                             </select>
-                            <input type="date" x-model="newDeadline" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none text-slate-500">
+                            <input type="date" x-model="newDeadline" class="bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none text-slate-500 dark:text-slate-400">
                         </div>
-                        <button @click="addTodo()" class="bg-black text-white px-6 py-2 rounded-2xl text-sm font-bold active:scale-95">Create</button>
+                        <button @click="addTodo()" class="bg-black dark:bg-white text-white dark:text-black px-6 py-2 rounded-2xl text-sm font-bold active:scale-95">Create</button>
                     </div>
                 </div>
             </div>
@@ -107,14 +111,22 @@
             </div>
         </section>
 
-        <div x-show="showFilters" x-collapse class="mb-8 bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6">
+        <div x-show="showFilters" x-collapse class="mb-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[32px] p-6 shadow-xl space-y-6">
             
             <div>
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Search</label>
+                <div class="relative">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-4 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <input type="text" x-model="searchQuery" placeholder="Filter tasks..." class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm font-bold outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700">
+                </div>
+            </div>
+
+            <div>
                 <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">View</label>
-                <div class="flex p-1 bg-slate-100 rounded-xl">
-                    <button @click="filterStatus = 'all'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'all' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'">All</button>
-                    <button @click="filterStatus = 'active'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'active' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'">Active</button>
-                    <button @click="filterStatus = 'completed'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'completed' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'">Done</button>
+                <div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                    <button @click="filterStatus = 'all'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-400'">All</button>
+                    <button @click="filterStatus = 'active'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'active' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-400'">Active</button>
+                    <button @click="filterStatus = 'completed'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="filterStatus === 'completed' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-400'">Done</button>
                 </div>
             </div>
 
@@ -122,18 +134,18 @@
                 <div>
                     <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Sort By</label>
                     <div class="flex flex-wrap gap-2">
-                        <button @click="sortBy = 'newest'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'newest' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Recent</button>
-                        <button @click="sortBy = 'deadline'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'deadline' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Urgent</button>
-                        <button @click="sortBy = 'importance'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'importance' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Priority</button>
+                        <button @click="sortBy = 'newest'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'newest' ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'">Recent</button>
+                        <button @click="sortBy = 'deadline'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'deadline' ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'">Urgent</button>
+                        <button @click="sortBy = 'importance'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="sortBy === 'importance' ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'">Priority</button>
                     </div>
                 </div>
 
                 <div>
                     <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Time</label>
                     <div class="flex flex-wrap gap-2">
-                        <button @click="filterDeadline = 'all'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'all' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">All</button>
-                        <button @click="filterDeadline = 'scheduled'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'scheduled' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Scheduled</button>
-                        <button @click="filterDeadline = 'anytime'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'anytime' ? 'bg-black text-white border-black' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'">Anytime</button>
+                        <button @click="filterDeadline = 'all'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'all' ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'">All</button>
+                        <button @click="filterDeadline = 'scheduled'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'scheduled' ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'">Scheduled</button>
+                        <button @click="filterDeadline = 'anytime'" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all" :class="filterDeadline === 'anytime' ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'">Anytime</button>
                     </div>
                 </div>
             </div>
@@ -141,11 +153,11 @@
             <div x-show="uniqueCategories.length > 0">
                 <label class="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-[0.2em] px-1">Tags</label>
                 <div class="flex flex-wrap gap-2">
-                    <button @click="filterCategory = 'all'" class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all" :class="filterCategory === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-400'">All</button>
+                    <button @click="filterCategory = 'all'" class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all" :class="filterCategory === 'all' ? 'bg-slate-800 dark:bg-slate-700 text-white border-transparent' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'">All</button>
                     <template x-for="cat in uniqueCategories" :key="cat">
                         <button @click="filterCategory = filterCategory === cat ? 'all' : cat" 
                                 class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all"
-                                :class="filterCategory === cat ? getTagColor(cat) + ' ring-2 ring-offset-1 ring-current' : 'bg-white border-slate-200 text-slate-400'"
+                                :class="filterCategory === cat ? getTagColor(cat) + ' ring-2 ring-offset-1 ring-current' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'"
                                 x-text="'#' + cat">
                         </button>
                     </template>
@@ -158,53 +170,49 @@
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
                 <template x-for="todo in activeTasks" :key="todo.id">
                     <div class="space-y-2">
-                        <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
+                        <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">
                             <div class="flex items-start justify-between">
                                 <div class="flex items-start space-x-4 flex-1">
-                                    <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center border-slate-200 hover:border-slate-400 shrink-0">
+                                    <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full border-2 flex items-center justify-center border-slate-200 dark:border-slate-700 hover:border-slate-400 shrink-0">
                                         <svg x-show="todo.is_completed" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                     </button>
 
                                     <div class="flex-1 cursor-pointer min-w-0 flex flex-col items-start" @click="openReadMode(todo)">
-                                        <h3 class="font-bold text-slate-800 text-[16px] leading-tight" x-text="todo.task"></h3>
+                                        <h3 class="font-bold text-slate-800 dark:text-slate-200 text-[16px] leading-tight" x-text="todo.task"></h3>
                                         <div x-show="todo.description" class="markdown-content text-sm text-slate-400 mt-1 line-clamp-1" x-html="marked.parse(todo.description || '')"></div>
                                         
                                         <div class="flex flex-wrap items-center gap-2 mt-3">
-                                            
                                             <template x-if="todo.deadline">
-                                                <div class="h-7 flex items-center space-x-1.5 px-2.5 rounded-xl border border-slate-200/60 bg-white shadow-sm">
+                                                <div class="h-7 flex items-center space-x-1.5 px-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
                                                     <svg class="w-3.5 h-3.5" :class="getDeadlineColor(todo.deadline, 'text')" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                     </svg>
                                                     <span class="text-[10px] font-black uppercase tracking-tight" :class="getDeadlineColor(todo.deadline, 'text')" x-text="formatDeadline(todo.deadline)"></span>
                                                 </div>
                                             </template>
-
-                                            <div class="h-7 flex items-center space-x-1.5 bg-slate-50 px-2.5 rounded-xl border border-slate-200/60 shadow-sm">
+                                            <div class="h-7 flex items-center space-x-1.5 bg-slate-50 dark:bg-slate-800 px-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700 shadow-sm">
                                                 <div class="w-2 h-2 rounded-full" :class="todo.importance == 3 ? 'bg-rose-500' : (todo.importance == 2 ? 'bg-amber-400' : 'bg-emerald-500')"></div>
                                                 <span class="text-[10px] font-black uppercase text-slate-400 tracking-tight">Priority</span>
                                             </div>
-                                            
                                             <span x-show="todo.category" class="h-7 flex items-center text-[10px] uppercase font-black px-2.5 rounded-xl shadow-sm border border-transparent" :class="getTagColor(todo.category)" x-text="todo.category"></span>
-
                                         </div>
                                     </div>
                                 </div>
-                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500 shrink-0"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
+                                <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 dark:text-slate-700 hover:text-red-500 shrink-0"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
                             </div>
                         </div>
                     </div>
                 </template>
             </div>
 
-            <div x-show="filterStatus !== 'active' && completedTasks.length > 0" class="space-y-4 pt-10 border-t border-slate-100">
+            <div x-show="filterStatus !== 'active' && completedTasks.length > 0" class="space-y-4 pt-10 border-t border-slate-100 dark:border-slate-800">
                 <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Completed</h2>
                 <template x-for="todo in completedTasks" :key="todo.id">
-                    <div class="group bg-white border border-slate-200 rounded-3xl p-5 shadow-sm opacity-50 grayscale transition-all">
+                    <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm opacity-50 grayscale transition-all">
                         <div class="flex items-start space-x-4">
-                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black flex items-center justify-center transition-all"><svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                            <h3 class="font-bold text-slate-500 line-through flex-1" x-text="todo.task"></h3>
-                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 hover:text-red-500"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
+                            <button @click="toggleTodo(todo)" class="w-7 h-7 mt-1 rounded-full bg-black dark:bg-white flex items-center justify-center transition-all"><svg class="w-4 h-4 text-white dark:text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                            <h3 class="font-bold text-slate-500 dark:text-slate-400 line-through flex-1" x-text="todo.task"></h3>
+                            <button @click="deleteTodo(todo.id)" class="p-2 text-slate-200 dark:text-slate-700 hover:text-red-500"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" /></svg></button>
                         </div>
                     </div>
                 </template>
@@ -222,29 +230,29 @@
                      x-transition:enter="transition ease-out duration-300"
                      x-transition:enter-start="opacity-0 translate-y-8"
                      x-transition:enter-end="opacity-100 translate-y-0"
-                     class="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative">
+                     class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative transition-colors">
 
                     <div class="px-8 pt-8 pb-4 flex justify-between items-center">
-                        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Detail</h2>
-                        <button @click="closeReadMode()" class="p-2 bg-slate-100 rounded-full text-slate-400 active:scale-90 transition-all">
+                        <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Detail</h2>
+                        <button @click="closeReadMode()" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 active:scale-90 transition-all">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
 
                     <div x-if="activeTodo" class="px-8 pb-8 space-y-6 overflow-y-auto max-h-[75vh] no-scrollbar">
-                        <div class="bg-slate-50 border border-slate-100 rounded-[24px] p-5">
+                        <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5">
                             <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Task</label>
-                            <input type="text" x-model="activeTodo.task" @blur="updateMainTask(activeTodo)" class="w-full bg-transparent text-lg font-bold text-slate-900 border-none p-0 focus:ring-0">
+                            <input type="text" x-model="activeTodo.task" @blur="updateMainTask(activeTodo)" class="w-full bg-transparent text-lg font-bold text-slate-900 dark:text-white border-none p-0 focus:ring-0">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-slate-50 border border-slate-100 rounded-[24px] p-4">
+                            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4">
                                 <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Category</label>
-                                <input type="text" x-model="activeTodo.category" placeholder="Add tag..." @blur="updateMainTask(activeTodo)" class="w-full bg-transparent text-sm font-bold text-slate-700 border-none p-0 focus:ring-0">
+                                <input type="text" x-model="activeTodo.category" placeholder="Add tag..." @blur="updateMainTask(activeTodo)" class="w-full bg-transparent text-sm font-bold text-slate-700 dark:text-slate-200 border-none p-0 focus:ring-0">
                             </div>
-                            <div class="bg-slate-50 border border-slate-100 rounded-[24px] p-4">
+                            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4">
                                 <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Priority</label>
-                                <select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-transparent text-sm font-bold text-slate-700 border-none p-0 focus:ring-0">
+                                <select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-transparent text-sm font-bold text-slate-700 dark:text-slate-200 border-none p-0 focus:ring-0">
                                     <option value="1">Low</option>
                                     <option value="2">Medium</option>
                                     <option value="3">High</option>
@@ -252,23 +260,74 @@
                             </div>
                         </div>
 
-                        <div class="bg-slate-50 border border-slate-100 rounded-[24px] p-4">
+                        <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4">
                             <label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Deadline</label>
-                            <input type="date" x-model="activeTodo.deadline" @change="updateMainTask(activeTodo)" class="w-full bg-transparent text-sm font-bold text-slate-700 border-none p-0 focus:ring-0">
+                            <input type="date" x-model="activeTodo.deadline" @change="updateMainTask(activeTodo)" class="w-full bg-transparent text-sm font-bold text-slate-700 dark:text-slate-200 border-none p-0 focus:ring-0">
                         </div>
 
-                        <div class="bg-slate-50 border border-slate-100 rounded-[24px] p-5">
+                        <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5">
                             <div class="flex justify-between items-center mb-3">
                                 <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Context</h4>
                                 <button @click="editingDesc = !editingDesc" class="text-[10px] font-bold uppercase text-blue-500" x-text="editingDesc ? 'Done' : 'Edit'"></button>
                             </div>
-                            <div x-show="!editingDesc" @click="editingDesc = true" class="markdown-content text-sm text-slate-600 leading-relaxed min-h-[40px] cursor-pointer" x-html="activeTodo.description ? marked.parse(activeTodo.description) : '<span class=\'text-slate-300 italic\'>Tap to add notes...</span>'"></div>
-                            <textarea x-show="editingDesc" x-model="activeTodo.description" @blur="updateMainTask(activeTodo)" class="w-full h-32 bg-white border-slate-100 rounded-xl p-3 text-sm focus:ring-black focus:border-black" placeholder="Add detailed notes, lists, or links (Markdown supported)..."></textarea>
+                            <div x-show="!editingDesc" @click="editingDesc = true" class="markdown-content text-sm text-slate-600 dark:text-slate-300 leading-relaxed min-h-[40px] cursor-pointer" x-html="activeTodo.description ? marked.parse(activeTodo.description) : '<span class=\'text-slate-300 italic\'>Tap to add notes...</span>'"></div>
+                            <textarea x-show="editingDesc" x-model="activeTodo.description" @blur="updateMainTask(activeTodo)" class="w-full h-32 bg-white dark:bg-slate-700 border-slate-100 dark:border-slate-600 rounded-xl p-3 text-sm focus:ring-black dark:focus:ring-white dark:text-white focus:border-black" placeholder="Add detailed notes, lists, or links (Markdown supported)..."></textarea>
                         </div>
 
-                        <button @click="closeReadMode()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all">
+                        <button @click="closeReadMode()" class="w-full bg-slate-900 dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all">
                             Done
                         </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <template x-teleport="body">
+            <div x-show="showArchive" 
+                 x-cloak 
+                 x-transition.opacity 
+                 class="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                
+                <div @click.outside="showArchive = false" 
+                     class="bg-white dark:bg-slate-900 w-full max-w-lg h-[80vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative transition-colors">
+
+                    <div class="px-8 pt-8 pb-4 flex justify-between items-center shrink-0">
+                        <div>
+                            <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Trash & Archive</h2>
+                            <p class="text-xs text-slate-400 font-medium">Deleted tasks</p>
+                        </div>
+                        <button @click="showArchive = false" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 active:scale-90 transition-all">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="px-8 pb-4 shrink-0">
+                        <input type="text" x-model="searchQuery" placeholder="Search archive..." class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl py-3 px-4 text-sm font-bold outline-none dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700">
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto px-8 pb-8 space-y-3 no-scrollbar">
+                        <template x-if="filteredArchive.length === 0">
+                            <div class="text-center py-10">
+                                <p class="text-slate-300 font-bold text-sm">Archive is empty</p>
+                            </div>
+                        </template>
+
+                        <template x-for="todo in filteredArchive" :key="todo.id">
+                            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 flex items-center justify-between">
+                                <div class="min-w-0 pr-4">
+                                    <h4 class="font-bold text-slate-600 dark:text-slate-300 truncate" x-text="todo.task"></h4>
+                                    <p class="text-[10px] text-slate-400" x-text="'Deleted: ' + new Date().toLocaleDateString()"></p>
+                                </div>
+                                <div class="flex items-center space-x-2 shrink-0">
+                                    <button @click="restoreTodo(todo)" class="p-2 bg-white dark:bg-slate-700 rounded-xl text-emerald-500 shadow-sm border border-slate-100 dark:border-slate-600">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                    </button>
+                                    <button @click="permanentDelete(todo.id)" class="p-2 bg-white dark:bg-slate-700 rounded-xl text-red-500 shadow-sm border border-slate-100 dark:border-slate-600">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
