@@ -43,15 +43,17 @@ body {
     animation: pulse-green 2s infinite; 
 }
 
-/* Updated Pull-to-Refresh: Centered across all devices */
+/* FIX: Forces the container to be full-width so justify-center can work */
 .ptr-element { 
-    width: 100%;
+    width: 100vw; 
     height: 0px; 
     overflow: hidden; 
     transition: height 0.2s ease; 
     display: flex; 
     align-items: center; 
     justify-content: center; 
+    position: relative;
+    left: 0;
 }
 
 .ptr-active .ptr-element { 

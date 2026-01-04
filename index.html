@@ -128,7 +128,7 @@
                                         <h3 class="font-bold text-slate-800 text-[16px]" x-text="todo.task"></h3>
                                         <div x-show="todo.description" class="markdown-content text-sm text-slate-400 mt-1 line-clamp-1" x-html="marked.parse(todo.description || '')"></div>
                                         <div class="flex items-center space-x-2 mt-2">
-                                            <span class="h-6 flex items-center text-[9px] uppercase font-black px-2 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
+                                            <span class="h-6 flex items-center text-[9px] uppercase font-black px-2 py-1 rounded-md" :class="getTagColor(todo.category)" x-text="todo.category"></span>
                                             
                                             <div class="h-6 flex items-center space-x-1.5 bg-slate-100 px-2 rounded-md border border-slate-200/50">
                                                 <div class="w-1.5 h-1.5 rounded-full" :class="todo.importance == 3 ? 'bg-rose-500' : (todo.importance == 2 ? 'bg-amber-400' : 'bg-emerald-500')"></div>
