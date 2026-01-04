@@ -27,28 +27,30 @@ window.todoApp = function() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
             window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); this.fetchTodos(); });
             window.addEventListener('offline', () => { this.isOnline = false; });
+            
             const cached = localStorage.getItem('todo_cache');
-            if (cached) this.todos = JSON.parse(cached);
+            if (cached) {
+                this.todos = JSON.parse(cached);
+                this.updateBadgeCount();
+            }
+            
             this.fetchTodos();
             this.syncPending();
-            
-            // Initial badge update
-            this.updateBadgeCount();
         },
 
-        // --- NEW: Badge Logic ---
+        // --- Badge Logic (Optimized for iOS PWA) ---
         updateBadgeCount() {
             if (!('setAppBadge' in navigator)) return;
-
-            // Rule: Incomplete AND (Has deadline OR High Priority)
+            
+            // Logic: Incomplete AND (Has deadline OR High Priority)
             const count = this.todos.filter(t => 
-                !t.is_completed && (t.deadline || t.importance == 3)
+                !t.is_completed && (t.deadline || parseInt(t.importance) === 3)
             ).length;
 
             if (count > 0) {
-                navigator.setAppBadge(count).catch(err => console.error(err));
+                navigator.setAppBadge(count).catch(() => {});
             } else {
-                navigator.clearAppBadge().catch(err => console.error(err));
+                navigator.clearAppBadge().catch(() => {});
             }
         },
 
@@ -86,11 +88,9 @@ window.todoApp = function() {
             if (!this.isOnline || !window.supabaseClient) return;
             const { data, error } = await window.supabaseClient.from('todos').select('*').order('created_at', { ascending: false });
             if (!error && data) {
-                const pendingTasks = this.todos.filter(t => t.isPending);
-                const serverTasks = data.map(t => this.sanitizeTodo(t));
-                this.todos = [...pendingTasks, ...serverTasks];
+                this.todos = data.map(t => this.sanitizeTodo(t));
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                this.updateBadgeCount(); // Update badge after fetch
+                this.updateBadgeCount();
             }
         },
 
@@ -109,14 +109,13 @@ window.todoApp = function() {
                         is_completed: task.is_completed || false, 
                         subtasks: task.subtasks || [] 
                     }]).select();
-
                     if (!error && data?.length > 0) {
                         const index = this.todos.findIndex(t => t.id === task.id);
                         if (index !== -1) { this.todos[index] = this.sanitizeTodo(data[0]); }
                     }
                 }
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                this.updateBadgeCount(); // Update badge after sync
+                this.updateBadgeCount();
             } finally { 
                 this.isSyncing = false; 
                 if (this.todos.some(t => t.isPending)) this.syncPending(); 
@@ -128,7 +127,6 @@ window.todoApp = function() {
             let taskText = this.newTodo, category = 'General';
             const hashMatch = taskText.match(/#(\w+)/);
             if (hashMatch) { category = hashMatch[1]; taskText = taskText.replace(hashMatch[0], '').trim(); }
-
             const newObj = { 
                 id: 'temp-' + Date.now(), 
                 task: taskText, 
@@ -141,18 +139,17 @@ window.todoApp = function() {
                 created_at: new Date().toISOString(), 
                 subtasks: [] 
             };
-
             this.todos.unshift(newObj);
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.newTodo = ''; this.newDescription = ''; this.newDeadline = ''; this.inputFocused = false;
-            this.updateBadgeCount(); // Update badge after adding
+            this.updateBadgeCount();
             if (this.isOnline) this.syncPending();
         },
 
         async toggleTodo(todo) { 
             todo.is_completed = !todo.is_completed; 
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-            this.updateBadgeCount(); // Update badge after toggle
+            this.updateBadgeCount();
             if (this.isOnline && !todo.isPending) {
                 await window.supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id); 
             }
@@ -160,14 +157,11 @@ window.todoApp = function() {
 
         async updateMainTask(todo) { 
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-            this.updateBadgeCount(); // Update badge after update
+            this.updateBadgeCount();
             if (this.isOnline && !todo.isPending) { 
                 await window.supabaseClient.from('todos').update({ 
-                    task: todo.task, 
-                    description: todo.description, 
-                    category: todo.category, 
-                    importance: todo.importance,
-                    deadline: todo.deadline
+                    task: todo.task, description: todo.description, 
+                    category: todo.category, importance: todo.importance, deadline: todo.deadline
                 }).eq('id', todo.id); 
             } 
         },
@@ -176,7 +170,7 @@ window.todoApp = function() {
             if (confirm("Delete this task?")) { 
                 this.todos = this.todos.filter(t => t.id !== id); 
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
-                this.updateBadgeCount(); // Update badge after delete
+                this.updateBadgeCount();
                 if (this.isOnline && !id.toString().startsWith('temp')) {
                     await window.supabaseClient.from('todos').delete().eq('id', id); 
                 }

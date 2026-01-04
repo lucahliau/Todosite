@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'todo-live-v2'; // Bump version
+const CACHE_NAME = 'todo-live-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -10,12 +10,11 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// --- PUSH NOTIFICATIONS ---
+// --- PUSH NOTIFICATIONS & BADGES ---
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
     
-    // Most browsers require showing a notification to allow background processing
     const options = { 
         body: data.body, 
         icon: '/icon.jpg', 
@@ -26,8 +25,7 @@ self.addEventListener('push', function(event) {
     event.waitUntil(
         Promise.all([
             self.registration.showNotification(data.title, options),
-            // Update badge in background if the data payload includes a 'badgeCount'
-            // (Note: your daily-push.js currently doesn't send this, but we can add it)
+            // iOS 17+ supports setting badges via push
             data.badgeCount ? navigator.setAppBadge(data.badgeCount) : Promise.resolve()
         ])
     );
