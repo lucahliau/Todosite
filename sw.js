@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'todo-v17'; // <--- UPDATED VERSION
+const CACHE_NAME = 'todo-v18'; // <--- UPDATED VERSION
 
 const STATIC_ASSETS = [
   '/',
