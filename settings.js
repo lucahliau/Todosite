@@ -36,10 +36,10 @@ window.settingsModal = function() {
         },
         
         openArchive() {
-            this.isOpen = false;
-            // Short delay to allow modal close animation
-            setTimeout(() => window.dispatchEvent(new CustomEvent('open-archive')), 200);
-        },
+    this.isOpen = false;
+    // Dispatch immediately so the Archive modal opens while Settings is fading out
+    window.dispatchEvent(new CustomEvent('open-archive'));
+},
 
         triggerArchiveCompleted() {
             this.isOpen = false;
