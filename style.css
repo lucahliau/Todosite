@@ -43,9 +43,9 @@ body {
     animation: pulse-green 2s infinite; 
 }
 
-/* FIX: Forces the container to be full-width so justify-center can work */
+/* Updated Pull-to-Refresh: Forced full-width and centering */
 .ptr-element { 
-    width: 100vw; 
+    width: 100% !important;
     height: 0px; 
     overflow: hidden; 
     transition: height 0.2s ease; 
@@ -54,6 +54,7 @@ body {
     justify-content: center; 
     position: relative;
     left: 0;
+    right: 0;
 }
 
 .ptr-active .ptr-element { 
