@@ -1,9 +1,21 @@
 // app.js
 
+// --- 1. Offline Support: Register the Service Worker ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        // We use './sw.js' to look for the file in the same directory
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker Registered'))
+            .catch(err => console.log('Service Worker Failed:', err));
+    });
+}
+
+// --- 2. Initialize Supabase ---
 if (typeof SUPABASE_CONFIG !== 'undefined') {
     window.supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
 }
 
+// --- 3. Main Application Logic ---
 window.todoApp = function() {
     return {
         todos: [],
@@ -40,11 +52,17 @@ window.todoApp = function() {
             // Apply Dark Mode immediately
             if (this.darkMode) document.documentElement.classList.add('dark');
             
-            // --- EVENT LISTENER FIX ---
-            // Prevent duplicate listeners if init() is called multiple times
+            // Prevent duplicate listeners
             if (!window._hasInitListeners) {
-                window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); this.fetchTodos(); });
-                window.addEventListener('offline', () => { this.isOnline = false; });
+                // Re-sync when connection returns
+                window.addEventListener('online', () => { 
+                    this.isOnline = true; 
+                    this.syncPending(); 
+                    this.fetchTodos(); 
+                });
+                window.addEventListener('offline', () => { 
+                    this.isOnline = false; 
+                });
                 
                 // Settings Events
                 window.addEventListener('toggle-dark-mode', () => this.toggleDarkMode());
@@ -55,11 +73,14 @@ window.todoApp = function() {
                 window._hasInitListeners = true;
             }
 
+            // Load from Cache immediately (Instant Load)
             const cached = localStorage.getItem('todo_cache');
             if (cached) {
                 this.todos = JSON.parse(cached);
                 this.updateBadgeCount();
             }
+
+            // Then try to fetch fresh data
             this.fetchTodos();
             this.syncPending();
         },
@@ -83,7 +104,10 @@ window.todoApp = function() {
         // --- Fetching ---
 
         async fetchTodos() {
+            // Even if we think we are offline, we might want to try if the user pulled to refresh,
+            // but generally we guard against errors.
             if (!this.isOnline || !window.supabaseClient) return;
+            
             const { data, error } = await window.supabaseClient
                 .from('todos')
                 .select('*')
@@ -91,6 +115,7 @@ window.todoApp = function() {
                 .order('created_at', { ascending: false });
                 
             if (!error && data) {
+                // Merge strategy: We simply replace here, but real-time is better for multi-device.
                 this.todos = data.map(t => this.sanitizeTodo(t));
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                 this.updateBadgeCount();
@@ -118,6 +143,7 @@ window.todoApp = function() {
             const hashMatch = taskText.match(/#(\w+)/);
             if (hashMatch) { category = hashMatch[1]; taskText = taskText.replace(hashMatch[0], '').trim(); }
             
+            // Create Optimistic UI Task (Temporary ID)
             const newObj = { 
                 id: 'temp-' + Date.now(), 
                 task: taskText, 
@@ -126,15 +152,20 @@ window.todoApp = function() {
                 importance: parseInt(this.newImportance), 
                 deadline: this.newDeadline || null, 
                 is_completed: false, 
-                isPending: true, 
+                isPending: true, // Mark as needing sync
                 is_deleted: false,
                 created_at: new Date().toISOString(), 
                 subtasks: [] 
             };
+            
             this.todos.unshift(newObj);
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            
+            // Reset Input
             this.newTodo = ''; this.newDescription = ''; this.newDeadline = ''; this.inputFocused = false;
             this.updateBadgeCount();
+            
+            // Try to sync immediately
             if (this.isOnline) this.syncPending();
         },
 
@@ -171,7 +202,6 @@ window.todoApp = function() {
         },
 
         async archiveCompletedTasks() {
-            // Alert 1: Confirmation
             if (!confirm("Move all completed tasks to archive?")) return;
             
             const completed = this.todos.filter(t => t.is_completed);
@@ -188,13 +218,10 @@ window.todoApp = function() {
             if (this.isOnline) {
                 await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', completedIds);
             }
-            
-            // Alert 2: Success
             alert("Completed tasks archived.");
         },
 
         async archiveOldTasks() {
-            // Alert 1: Confirmation
             if (!confirm("Archive tasks created more than 4 weeks ago?")) return;
 
             const cutoff = new Date();
@@ -214,8 +241,6 @@ window.todoApp = function() {
             if (this.isOnline) {
                 await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', oldIds);
             }
-
-            // Alert 2: Success
             alert(`${oldIds.length} old tasks archived.`);
         },
 
@@ -259,10 +284,14 @@ window.todoApp = function() {
         },
 
         async syncPending() {
+            // Blocks if already syncing or offline
             if (!this.isOnline || this.isSyncing || !window.supabaseClient) return;
+            
             this.isSyncing = true;
             try {
+                // Find local tasks that haven't been saved to DB yet
                 const pending = this.todos.filter(t => t.isPending);
+                
                 for (const task of pending) {
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
                         task: this.capitalize(task.task), 
@@ -274,15 +303,21 @@ window.todoApp = function() {
                         is_deleted: false,
                         subtasks: task.subtasks || [] 
                     }]).select();
+
+                    // If successful, replace temp ID with real DB ID
                     if (!error && data?.length > 0) {
                         const index = this.todos.findIndex(t => t.id === task.id);
-                        if (index !== -1) { this.todos[index] = this.sanitizeTodo(data[0]); }
+                        if (index !== -1) { 
+                            this.todos[index] = this.sanitizeTodo(data[0]); 
+                        }
                     }
                 }
+                // Update cache with real IDs
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                 this.updateBadgeCount();
             } finally { 
                 this.isSyncing = false; 
+                // Recursively check if new tasks were added while syncing
                 if (this.todos.some(t => t.isPending)) this.syncPending(); 
             }
         },
@@ -308,14 +343,15 @@ window.todoApp = function() {
             } 
         },
 
+        // Pull to Refresh Logic
         touchStart(e) { if (window.scrollY > 10) return; this.startY = e.touches ? e.touches[0].pageY : e.pageY; },
         touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
         async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
 
+        // Getters
         get activeTasks() { return this.applyFiltersAndSort(this.todos.filter(t => !t.is_completed)); },
         get completedTasks() { return this.applyFiltersAndSort(this.todos.filter(t => t.is_completed)); },
 
-        // NEW: Check if any filter is active
         get hasActiveFilters() {
             return this.filterStatus !== 'all' || 
                    this.sortBy !== 'newest' || 
