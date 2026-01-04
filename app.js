@@ -16,7 +16,7 @@ window.todoApp = function() {
         activeTodo: null,
         inputFocused: false,
         
-        // --- Updated Filter States ---
+        // --- Filter States ---
         filterStatus: 'all',      // 'all', 'active', 'completed'
         sortBy: 'newest',         // 'newest', 'importance', 'deadline'
         filterDeadline: 'all',    // 'all', 'scheduled', 'anytime'
@@ -85,7 +85,14 @@ window.todoApp = function() {
         async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
 
         sanitizeTodo(t) { 
-            return { ...t, isPending: t.isPending || false, description: t.description || '', deadline: t.deadline || null, subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] }; 
+            return { 
+                ...t, 
+                isPending: t.isPending || false, 
+                description: t.description || '', 
+                category: t.category || null, // Ensure null if empty
+                deadline: t.deadline || null, 
+                subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] 
+            }; 
         },
 
         async fetchTodos() {
@@ -107,7 +114,7 @@ window.todoApp = function() {
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
                         task: this.capitalize(task.task), 
                         description: task.description || '', 
-                        category: task.category || 'General', 
+                        category: task.category || null, // No default 'General'
                         importance: task.importance || 2, 
                         deadline: task.deadline || null, 
                         is_completed: task.is_completed || false, 
@@ -128,9 +135,15 @@ window.todoApp = function() {
 
         async addTodo() {
             if (!this.newTodo.trim()) return;
-            let taskText = this.capitalize(this.newTodo), category = 'General';
+            
+            // Logic: Default category is null, not 'General'
+            let taskText = this.capitalize(this.newTodo), category = null;
             const hashMatch = taskText.match(/#(\w+)/);
-            if (hashMatch) { category = hashMatch[1]; taskText = taskText.replace(hashMatch[0], '').trim(); }
+            if (hashMatch) { 
+                category = hashMatch[1]; 
+                taskText = taskText.replace(hashMatch[0], '').trim(); 
+            }
+
             const newObj = { 
                 id: 'temp-' + Date.now(), 
                 task: taskText, 
@@ -161,6 +174,9 @@ window.todoApp = function() {
 
         async updateMainTask(todo) { 
             todo.task = this.capitalize(todo.task);
+            // Handle empty category string from input
+            if (todo.category === '') todo.category = null;
+            
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.updateBadgeCount();
             if (this.isOnline && !todo.isPending) { 
@@ -181,7 +197,7 @@ window.todoApp = function() {
             } 
         },
 
-        // --- Updated Getters & Sort Logic ---
+        // --- Getters & Sort Logic ---
         
         get activeTasks() { 
             const items = this.todos.filter(t => !t.is_completed);
@@ -208,35 +224,35 @@ window.todoApp = function() {
 
             // 3. Sort
             return items.sort((a, b) => { 
-                // Sort by Deadline (Urgent)
                 if (this.sortBy === 'deadline') {
-                    if (a.deadline && !b.deadline) return -1; // a comes first
-                    if (!a.deadline && b.deadline) return 1;  // b comes first
+                    if (a.deadline && !b.deadline) return -1;
+                    if (!a.deadline && b.deadline) return 1;
                     if (a.deadline && b.deadline) {
-                        return new Date(a.deadline) - new Date(b.deadline); // Earliest first
+                        return new Date(a.deadline) - new Date(b.deadline);
                     }
-                    // Fallback to importance if no deadlines
                     return b.importance - a.importance;
                 }
                 
-                // Sort by Priority
                 if (this.sortBy === 'importance') {
                     if (b.importance !== a.importance) return b.importance - a.importance;
-                    // Fallback to deadline if importance is same
                     if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
                 }
 
-                // Default: Newest Created
                 return new Date(b.created_at) - new Date(a.created_at); 
             }); 
         },
 
-        get uniqueCategories() { return [...new Set(this.todos.map(t => t.category).filter(c => c && c !== 'General'))].sort(); },
+        get uniqueCategories() { 
+            // Return only truthy categories (removes null, undefined, "")
+            return [...new Set(this.todos.map(t => t.category).filter(c => c))].sort(); 
+        },
+        
         applyCategory(cat) { this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat; },
         
         getTagColor(category) {
+            if (!category) return ''; // Handle null category
             const colors = ['bg-blue-50 text-blue-600', 'bg-indigo-50 text-indigo-600', 'bg-emerald-50 text-emerald-600', 'bg-rose-50 text-rose-600', 'bg-amber-50 text-amber-600', 'bg-cyan-50 text-cyan-600', 'bg-pink-50 text-pink-600', 'bg-violet-50 text-violet-600', 'bg-lime-50 text-lime-600', 'bg-orange-50 text-orange-600', 'bg-teal-50 text-teal-600', 'bg-fuchsia-50 text-fuchsia-600', 'bg-sky-50 text-sky-600', 'bg-slate-100 text-slate-600', 'bg-purple-50 text-purple-600', 'bg-red-50 text-red-600', 'bg-green-50 text-green-600', 'bg-zinc-100 text-zinc-600', 'bg-neutral-100 text-neutral-600', 'bg-stone-100 text-stone-600'];
-            let hash = 0; for (let i = 0; i < (category || '').length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
+            let hash = 0; for (let i = 0; i < category.length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
             return colors[Math.abs(hash) % colors.length];
         },
         openReadMode(todo) { this.activeTodo = todo; this.editingDesc = false; },
