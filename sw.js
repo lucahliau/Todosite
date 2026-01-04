@@ -1,9 +1,12 @@
-const CACHE_NAME = 'todo-v16'; 
+// sw.js
+const CACHE_NAME = 'todo-v17'; // <--- UPDATED VERSION
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/config.js'
+  '/config.js',
+  '/styles.css', // <--- NEW FILE ADDED
+  '/app.js'      // <--- NEW FILE ADDED
 ];
 
 self.addEventListener('install', (event) => {
@@ -42,7 +45,8 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-// --- NEW: LISTEN FOR PUSH NOTIFICATIONS ---
+
+// --- PUSH NOTIFICATIONS ---
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
@@ -51,7 +55,7 @@ self.addEventListener('push', function(event) {
       body: data.body,
       icon: '/icon.jpg',
       badge: '/icon.jpg',
-      data: { url: '/' } // URL to open when clicked
+      data: { url: '/' } 
     };
 
     event.waitUntil(
@@ -60,7 +64,6 @@ self.addEventListener('push', function(event) {
   }
 });
 
-// Handle clicking the notification
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   event.waitUntil(
