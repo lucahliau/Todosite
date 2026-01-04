@@ -1,58 +1,70 @@
-// app.js
+/**
+ * app.js - Full Logic
+ * Optimized for: Fast initial load, background synchronization, and global file connectivity.
+ */
 
 // 1. GLOBAL INITIALIZATION
-// We attach the client to the window so settings.js can also access it.
+// Attach the Supabase client to the window object so all files (including settings.js) share the same connection.
 if (typeof SUPABASE_CONFIG !== 'undefined') {
     window.supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
 } else {
-    console.error("SUPABASE_CONFIG not found. Ensure config.js is loaded before app.js.");
+    console.error("Config missing: Ensure config.js is loaded before app.js");
 }
 
-// 2. TODO APP COMPONENT
 window.todoApp = function() {
     return {
-        todos: [], 
-        newTodo: '', 
-        newDescription: '', 
-        newImportance: '2', 
-        isOnline: navigator.onLine, 
-        showFilters: false, 
-        activeTodo: null, 
-        inputFocused: false, 
-        filterStatus: 'all', 
-        sortBy: 'newest', 
-        editingDesc: false, 
-        tempSubTitle: '', 
-        tempSubDesc: '', 
-        isSyncing: false, 
-        startY: 0, 
+        // --- State Variables ---
+        todos: [],
+        newTodo: '',
+        newDescription: '',
+        newImportance: '2',
+        isOnline: navigator.onLine,
+        showFilters: false,
+        activeTodo: null,
+        inputFocused: false,
+        filterStatus: 'all',
+        sortBy: 'newest',
+        editingDesc: false,
+        tempSubTitle: '',
+        tempSubDesc: '',
+        isSyncing: false,
+        startY: 0,
         pullDistance: 0,
         iconStatus: 'Checking...',
 
         async init() {
-            // Setup Markdown options if library is present
+            // Set Markdown options
             if (window.marked) {
                 marked.setOptions({ gfm: true, breaks: true });
             }
 
-            // Network listeners
-            window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); });
-            window.addEventListener('offline', () => { this.isOnline = false; });
-            
-            // Initial cache load for instant UI
-            const cached = localStorage.getItem('todo_cache');
-            if (cached) this.todos = JSON.parse(cached);
-            
-            // App check for icon
-            fetch('/icon.jpg')
-                .then(r => this.iconStatus = r.ok ? 'FOUND' : '404 NOT FOUND')
-                .catch(e => this.iconStatus = 'ERROR');
+            // Network Status Listeners
+            window.addEventListener('online', () => { 
+                this.isOnline = true; 
+                this.syncPending(); 
+                this.fetchTodos(); // Refresh on reconnect
+            });
+            window.addEventListener('offline', () => { 
+                this.isOnline = false; 
+            });
 
-            await this.fetchTodos();
+            // INSTANT LOAD: Pull from LocalStorage immediately so the screen isn't blank
+            const cached = localStorage.getItem('todo_cache');
+            if (cached) {
+                this.todos = JSON.parse(cached);
+            }
+
+            // BACKGROUND SYNC: Pull fresh data from the internet
+            this.fetchTodos();
             this.syncPending();
+
+            // Status Check
+            fetch('/icon.jpg')
+                .then(r => this.iconStatus = r.ok ? 'FOUND' : '404')
+                .catch(() => this.iconStatus = 'ERROR');
         },
 
-        // --- GESTURE & TOUCH LOGIC ---
+        // --- Gesture Handling (Pull to Refresh) ---
         touchStart(e) { 
             if (window.scrollY > 10) return; 
             this.startY = e.touches ? e.touches[0].pageY : e.pageY; 
@@ -69,7 +81,7 @@ window.todoApp = function() {
             this.pullDistance = 0; 
         },
 
-        // --- CORE DATA OPERATIONS ---
+        // --- Data Fetching & Sync ---
         sanitizeTodo(t) { 
             return { 
                 ...t, 
@@ -81,14 +93,16 @@ window.todoApp = function() {
 
         async fetchTodos() {
             if (!this.isOnline || !window.supabaseClient) return;
+            
             const { data, error } = await window.supabaseClient
                 .from('todos')
                 .select('*')
                 .order('created_at', { ascending: false });
-            
+
             if (!error && data) {
                 const pendingTasks = this.todos.filter(t => t.isPending);
                 const serverTasks = data.map(t => this.sanitizeTodo(t));
+                // Merge pending local tasks with fresh server data
                 this.todos = [...pendingTasks, ...serverTasks];
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             }
@@ -113,16 +127,17 @@ window.todoApp = function() {
                         const index = this.todos.findIndex(t => t.id === task.id);
                         if (index !== -1) { 
                             this.todos[index] = this.sanitizeTodo(data[0]); 
-                            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
                         }
                     }
                 }
+                localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             } finally { 
                 this.isSyncing = false; 
                 if (this.todos.some(t => t.isPending)) this.syncPending(); 
             }
         },
 
+        // --- CRUD Operations ---
         async addTodo() {
             if (!this.newTodo.trim()) return;
             let taskText = this.newTodo, category = 'General';
@@ -146,6 +161,7 @@ window.todoApp = function() {
 
             this.todos.unshift(newObj);
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            
             this.newTodo = ''; 
             this.newDescription = ''; 
             this.inputFocused = false;
@@ -153,7 +169,45 @@ window.todoApp = function() {
             if (this.isOnline) this.syncPending();
         },
 
-        // --- UI HELPERS & FILTERING ---
+        async toggleTodo(todo) { 
+            todo.is_completed = !todo.is_completed; 
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+            if (this.isOnline && !todo.isPending) {
+                await window.supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id); 
+            }
+        },
+
+        async deleteTodo(id) { 
+            if (confirm("Delete this task?")) { 
+                this.todos = this.todos.filter(t => t.id !== id); 
+                localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+                if (this.isOnline && !id.toString().startsWith('temp')) {
+                    await window.supabaseClient.from('todos').delete().eq('id', id); 
+                }
+            } 
+        },
+
+        // --- Detailed Updates ---
+        async updateMainTask(todo) { 
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+            if (this.isOnline && !todo.isPending) { 
+                await window.supabaseClient.from('todos').update({ 
+                    task: todo.task, 
+                    description: todo.description, 
+                    category: todo.category, 
+                    importance: todo.importance 
+                }).eq('id', todo.id); 
+            } 
+        },
+
+        async updateSubtasks(todo) { 
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
+            if (this.isOnline && !todo.isPending) { 
+                await window.supabaseClient.from('todos').update({ subtasks: todo.subtasks }).eq('id', todo.id); 
+            } 
+        },
+
+        // --- Getters & UI Helpers ---
         get activeTasks() { return this.sortItems(this.todos.filter(t => !t.is_completed)); },
         get completedTasks() { return this.sortItems(this.todos.filter(t => t.is_completed)); },
         
@@ -180,7 +234,6 @@ window.todoApp = function() {
             return colors[Math.abs(hash) % colors.length];
         },
 
-        // --- ITEM DETAIL & UPDATE LOGIC ---
         openReadMode(todo) { 
             this.activeTodo = todo; 
             this.tempSubTitle = ''; 
@@ -192,48 +245,12 @@ window.todoApp = function() {
         closeReadMode() { 
             this.activeTodo = null; 
             document.body.style.overflow = 'auto'; 
-        },
-
-        async updateSubtasks(todo) { 
-            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
-            if (this.isOnline && !todo.isPending) { 
-                await window.supabaseClient.from('todos').update({ subtasks: todo.subtasks }).eq('id', todo.id); 
-            } 
-        },
-
-        async updateMainTask(todo) { 
-            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
-            if (this.isOnline && !todo.isPending) { 
-                await window.supabaseClient.from('todos').update({ 
-                    task: todo.task, 
-                    description: todo.description, 
-                    category: todo.category, 
-                    importance: todo.importance 
-                }).eq('id', todo.id); 
-            } 
-        },
-
-        async toggleTodo(todo) { 
-            todo.is_completed = !todo.is_completed; 
-            localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
-            if (this.isOnline && !todo.isPending) {
-                await window.supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id); 
-            }
-        },
-
-        async deleteTodo(id) { 
-            if (confirm("Delete this task?")) { 
-                this.todos = this.todos.filter(t => t.id !== id); 
-                localStorage.setItem('todo_cache', JSON.stringify(this.todos)); 
-                if (this.isOnline && !id.toString().startsWith('temp')) {
-                    await window.supabaseClient.from('todos').delete().eq('id', id); 
-                }
-            } 
         }
-    }
-}
+    };
+};
 
-// 3. SERVICE WORKER REGISTRATION
+// 2. SERVICE WORKER REGISTRATION
+// Minimal registration for Push support only.
 if ('serviceWorker' in navigator) { 
-    navigator.serviceWorker.register('/sw.js').catch(err => console.error("SW Registration Failed:", err)); 
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW failed:", err)); 
 }

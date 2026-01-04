@@ -1,72 +1,29 @@
 // sw.js
-const CACHE_NAME = 'todo-v18'; // <--- UPDATED VERSION
+const CACHE_NAME = 'todo-live-v1';
 
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/config.js',
-  '/styles.css', // <--- NEW FILE ADDED
-  '/app.js'      // <--- NEW FILE ADDED
-];
-
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled([
-        ...STATIC_ASSETS.map(asset => cache.add(asset)),
-        cache.add('/icon.jpg?v=1') // Force fresh pull
-      ]);
-    })
-  );
-});
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
+  // Clear all old caches immediately to fix the blank screen
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.map((k) => k !== CACHE_NAME ? caches.delete(k) : null)
-    ))
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-        }
-        return networkResponse;
-      }).catch(() => null);
-      return cachedResponse || fetchPromise;
-    })
-  );
-});
+// We REMOVE the 'fetch' listener entirely so the browser 
+// loads index, app, and settings directly from Vercel.
 
-// --- PUSH NOTIFICATIONS ---
+// --- KEEP: PUSH NOTIFICATIONS ---
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
-    
-    const options = {
-      body: data.body,
-      icon: '/icon.jpg',
-      badge: '/icon.jpg',
-      data: { url: '/' } 
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
+    const options = { body: data.body, icon: '/icon.jpg', badge: '/icon.jpg', data: { url: '/' } };
+    event.waitUntil(self.registration.showNotification(data.title, options));
   }
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  event.waitUntil(
-    clients.openWindow(event.notification.data.url)
-  );
+  event.waitUntil(clients.openWindow(event.notification.data.url));
 });
