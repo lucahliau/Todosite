@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
              class="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
             
             <div @click.outside="isOpen = false" 
-                 class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[32px] shadow-2xl flex flex-col transition-colors duration-300 overflow-hidden max-h-[85vh]">
+                 class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[32px] shadow-2xl flex flex-col transition-colors duration-300 overflow-hidden max-h-[85vh] min-h-[600px]">
                 
                 <div class="px-8 pt-8 pb-2 flex justify-between items-center shrink-0 mb-2">
                     <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Settings</h2>
