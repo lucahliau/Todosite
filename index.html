@@ -5,31 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>To do</title>
     
-    <link rel="apple-touch-icon" href="icon.jpg?v=1">
-    <link rel="icon" type="image/jpg" href="icon.jpg">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="To do">
-    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22To%20do%22,%22short_name%22:%22To%20do%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#000000%22,%22icons%22:[{%22src%22:%22icon.jpg?v=1%22,%22sizes%22:%22512x512%22,%22type%22:%22image/jpg%22}]}">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script src="settings.js" defer></script>
+
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <script src="config.js"></script> <script src="settings.js" defer></script>
-    <script src="app.js" defer></script> </head>
+</head>
 
 <body class="bg-[#F9FBFC] text-slate-900 min-h-screen pb-20"
-      x-data="todoApp()" x-init="init()"
+      x-data="todoApp()" 
+      x-init="init()"
       @touchstart="touchStart($event)" @touchmove="touchMove($event)" @touchend="touchEnd()"
       @mousedown="touchStart($event)" @mousemove="touchMove($event)" @mouseup="touchEnd()"
       :class="pullDistance > 50 ? 'ptr-active' : ''">
 
-    <script src="app.js"></script>
+      <div x-cloak class="max-w-3xl mx-auto px-5 pt-8">
+          </div>
 </body>
 </html>
