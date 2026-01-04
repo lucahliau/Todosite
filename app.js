@@ -44,7 +44,7 @@ window.todoApp = function() {
         isSyncing: false,
         startY: 0,
         pullDistance: 0,
-        iconStatus: 'Checking...',
+        realtimeChannel: null,
 
         async init() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
@@ -80,6 +80,9 @@ window.todoApp = function() {
                 this.updateBadgeCount();
             }
 
+            // Start Realtime Listener (Syncs changes from other devices)
+            this.initRealtime();
+
             // Then try to fetch fresh data
             this.fetchTodos();
             this.syncPending();
@@ -104,8 +107,6 @@ window.todoApp = function() {
         // --- Fetching ---
 
         async fetchTodos() {
-            // Even if we think we are offline, we might want to try if the user pulled to refresh,
-            // but generally we guard against errors.
             if (!this.isOnline || !window.supabaseClient) return;
             
             const { data, error } = await window.supabaseClient
@@ -115,7 +116,6 @@ window.todoApp = function() {
                 .order('created_at', { ascending: false });
                 
             if (!error && data) {
-                // Merge strategy: We simply replace here, but real-time is better for multi-device.
                 this.todos = data.map(t => this.sanitizeTodo(t));
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                 this.updateBadgeCount();
@@ -133,6 +133,57 @@ window.todoApp = function() {
             if (!error && data) {
                 this.archivedTodos = data.map(t => this.sanitizeTodo(t));
             }
+        },
+
+        // --- Realtime Sync ---
+
+        initRealtime() {
+            if (!window.supabaseClient) return;
+
+            // Remove existing channel if any to prevent duplicates
+            if (this.realtimeChannel) window.supabaseClient.removeChannel(this.realtimeChannel);
+
+            this.realtimeChannel = window.supabaseClient
+                .channel('public:todos')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, payload => {
+                    this.handleRealtimeEvent(payload);
+                })
+                .subscribe();
+        },
+
+        handleRealtimeEvent(payload) {
+            const { eventType, new: newRec, old: oldRec } = payload;
+
+            // 1. INSERT: Add if we don't have it (prevent duplicates from our own sync)
+            if (eventType === 'INSERT') {
+                if (!this.todos.some(t => t.id === newRec.id)) {
+                    this.todos.unshift(this.sanitizeTodo(newRec));
+                }
+            } 
+            // 2. UPDATE: Update local data or soft-delete
+            else if (eventType === 'UPDATE') {
+                // If it was "soft deleted" (is_deleted = true), remove it from view
+                if (newRec.is_deleted) {
+                    this.todos = this.todos.filter(t => t.id !== newRec.id);
+                } else {
+                    // Otherwise, update the data
+                    const index = this.todos.findIndex(t => t.id === newRec.id);
+                    if (index !== -1) {
+                        this.todos[index] = { ...this.todos[index], ...this.sanitizeTodo(newRec) };
+                    } else {
+                        // If we didn't have it (e.g. restored from archive), add it
+                        this.todos.unshift(this.sanitizeTodo(newRec));
+                    }
+                }
+            } 
+            // 3. DELETE: Hard delete
+            else if (eventType === 'DELETE') {
+                this.todos = this.todos.filter(t => t.id !== oldRec.id);
+            }
+
+            // Save to Cache & Update Badge
+            localStorage.setItem('todo_cache', JSON.stringify(this.todos));
+            this.updateBadgeCount();
         },
 
         // --- Actions ---
