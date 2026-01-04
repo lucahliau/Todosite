@@ -53,10 +53,10 @@ export default async function handler(request, response) {
 
             // 5. Format the Message
             const topFive = sortedTasks.slice(0, 5);
-            messageBody = `You have ${count} tasks to complete. Here are your most important tasks:\n`;
+            messageBody = `Here are your most important tasks:\n`;
             
             topFive.forEach((t, index) => {
-                let taskTitle = t.task.length > 20 ? t.task.substring(0, 20) + "..." : t.task;
+                let taskTitle = t.task.length > 40 ? t.task.substring(0, 40) + "..." : t.task;
                 let dateLabel = "";
 
                 if (t.deadline) {
@@ -79,7 +79,7 @@ export default async function handler(request, response) {
 
         // 7. Send Notification Payload
         const notificationPayload = JSON.stringify({
-            title: 'To do', // Updated Title
+            title: 'You have ${count} tasks to complete.' , // Updated Title
             body: messageBody.trim()
         });
 
