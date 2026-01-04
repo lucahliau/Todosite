@@ -3,8 +3,8 @@
 // --- 1. Offline Support: Register the Service Worker ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        // We use './sw.js' to look for the file in the same directory
-        navigator.serviceWorker.register('./sw.js')
+        // Explicitly define scope as '/' to ensure it controls the whole domain
+        navigator.serviceWorker.register('./sw.js', { scope: '/' })
             .then(reg => console.log('Service Worker Registered'))
             .catch(err => console.log('Service Worker Failed:', err));
     });

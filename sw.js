@@ -1,12 +1,10 @@
 // sw.js
-const CACHE_NAME = 'todo-shell-v4'; // Increment this to force update
+const CACHE_NAME = 'todo-shell-v6'; // Version bumped to force update
 
-// 1. Assets to Cache Immediately (The App Shell)
-// We must cache the CDNs you rely on, or the app breaks offline.
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/style.css',
+  '/style.css',   // Corrected filename (singular)
   '/app.js',
   '/settings.js',
   '/config.js',
@@ -23,11 +21,15 @@ const STATIC_ASSETS = [
 
 // Install: Cache all static assets
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Activate immediately
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching App Shell');
-      return cache.addAll(STATIC_ASSETS);
+      // Use Promise.all to cache robustly
+      return Promise.all(
+        STATIC_ASSETS.map(url => {
+          return cache.add(url).catch(err => console.error('Failed to cache:', url, err));
+        })
+      );
     })
   );
 });
@@ -44,30 +46,39 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Network First for API, Cache First for Assets
+// Fetch: Navigation Fallback strategy
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // A. Supabase API requests: Network Only (or handle in app.js)
-  // We let app.js handle data caching via localStorage to avoid stale SW data logic
+  // 1. Navigation Strategy (HTML)
+  // If the browser requests a page navigation, return index.html from cache.
+  // This fixes the "No Internet" error when opening the app offline.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html').then((cached) => {
+        return cached || fetch(event.request).catch(() => {
+            return caches.match('/index.html');
+        });
+      })
+    );
+    return;
+  }
+
+  // 2. Ignore Supabase API (handled by app.js logic)
   if (url.hostname.includes('supabase.co')) {
     return; 
   }
 
-  // B. Static Assets: Cache First, fall back to Network
+  // 3. Asset Strategy (Stale-While-Revalidate / Cache First)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
-      
-      return fetch(event.request).then((networkResponse) => {
-        // Optional: Cache new static assets dynamically if needed
-        return networkResponse;
-      });
+      return fetch(event.request);
     })
   );
 });
 
-// --- KEEP EXISTING PUSH NOTIFICATION LOGIC BELOW ---
+// --- Push Notifications ---
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
