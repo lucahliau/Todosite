@@ -12,7 +12,7 @@ export default async function handler(request, response) {
     // You must set these in Vercel Environment Variables
     webpush.setVapidDetails(
         'mailto:your-email@example.com',
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, // Note the prefix if using Next.js, otherwise just VAPID_PUBLIC_KEY
+        process.env.VAPID_PUBLIC_KEY, // Note the prefix if using Next.js, otherwise just VAPID_PUBLIC_KEY
         process.env.VAPID_PRIVATE_KEY
     );
 
