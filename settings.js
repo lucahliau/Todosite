@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
              class="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
             
             <div @click.outside="isOpen = false" 
-                 class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[32px] shadow-2xl flex flex-col transition-colors duration-300 overflow-hidden h-[80vh]">
+                 class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[32px] shadow-2xl flex flex-col transition-colors duration-300 overflow-hidden h-auto max-h-[85vh]">
                 
                 <div class="px-8 pt-8 pb-4 flex justify-between items-center shrink-0">
                     <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Settings</h2>
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 </div>
 
-                <div class="px-8 pb-16 overflow-y-auto no-scrollbar space-y-10">
+                <div class="px-8 pb-10 overflow-y-auto no-scrollbar space-y-12">
                     
                     <div>
                         <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Appearance</h3>
