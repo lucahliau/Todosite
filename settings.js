@@ -96,14 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
             <div @click.outside="isOpen = false" 
                  class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[32px] shadow-2xl flex flex-col transition-colors duration-300 overflow-hidden max-h-[85vh]">
                 
-                <div class="px-8 pt-8 pb-4 flex justify-between items-center shrink-0">
+                <div class="px-8 pt-8 pb-2 flex justify-between items-center shrink-0 mb-2">
                     <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Settings</h2>
                     <button @click="isOpen = false" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 active:scale-90 transition-all -mr-2">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
 
-                <div class="px-8 pb-10 overflow-y-auto no-scrollbar space-y-8">
+                <div class="px-8 pb-16 overflow-y-auto no-scrollbar space-y-10">
                     
                     <div>
                         <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Appearance</h3>
