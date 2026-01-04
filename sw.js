@@ -42,3 +42,28 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+// --- NEW: LISTEN FOR PUSH NOTIFICATIONS ---
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    const data = event.data.json();
+    
+    const options = {
+      body: data.body,
+      icon: '/icon.jpg',
+      badge: '/icon.jpg',
+      data: { url: '/' } // URL to open when clicked
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+  }
+});
+
+// Handle clicking the notification
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url)
+  );
+});
