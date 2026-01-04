@@ -27,26 +27,20 @@ window.todoApp = function() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
             window.addEventListener('online', () => { this.isOnline = true; this.syncPending(); this.fetchTodos(); });
             window.addEventListener('offline', () => { this.isOnline = false; });
-            
             const cached = localStorage.getItem('todo_cache');
             if (cached) {
                 this.todos = JSON.parse(cached);
                 this.updateBadgeCount();
             }
-            
             this.fetchTodos();
             this.syncPending();
         },
 
-        // --- Badge Logic (Optimized for iOS PWA) ---
         updateBadgeCount() {
             if (!('setAppBadge' in navigator)) return;
-            
-            // Logic: Incomplete AND (Has deadline OR High Priority)
             const count = this.todos.filter(t => 
                 !t.is_completed && (t.deadline || parseInt(t.importance) === 3)
             ).length;
-
             if (count > 0) {
                 navigator.setAppBadge(count).catch(() => {});
             } else {
@@ -76,6 +70,12 @@ window.todoApp = function() {
             return deadline.toLocaleDateString('en-US', options);
         },
 
+        // Helper to capitalize first letter
+        capitalize(str) {
+            if (!str) return "";
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        },
+
         touchStart(e) { if (window.scrollY > 10) return; this.startY = e.touches ? e.touches[0].pageY : e.pageY; },
         touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
         async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
@@ -101,11 +101,11 @@ window.todoApp = function() {
                 const pending = this.todos.filter(t => t.isPending);
                 for (const task of pending) {
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
-                        task: task.task, 
+                        task: this.capitalize(task.task), 
                         description: task.description || '', 
                         category: task.category || 'General', 
                         importance: task.importance || 2, 
-                        deadline: task.deadline || null,
+                        deadline: task.deadline || null, 
                         is_completed: task.is_completed || false, 
                         subtasks: task.subtasks || [] 
                     }]).select();
@@ -124,7 +124,7 @@ window.todoApp = function() {
 
         async addTodo() {
             if (!this.newTodo.trim()) return;
-            let taskText = this.newTodo, category = 'General';
+            let taskText = this.capitalize(this.newTodo), category = 'General';
             const hashMatch = taskText.match(/#(\w+)/);
             if (hashMatch) { category = hashMatch[1]; taskText = taskText.replace(hashMatch[0], '').trim(); }
             const newObj = { 
@@ -133,7 +133,7 @@ window.todoApp = function() {
                 description: this.newDescription || '', 
                 category: category, 
                 importance: parseInt(this.newImportance), 
-                deadline: this.newDeadline || null,
+                deadline: this.newDeadline || null, 
                 is_completed: false, 
                 isPending: true, 
                 created_at: new Date().toISOString(), 
@@ -156,12 +156,12 @@ window.todoApp = function() {
         },
 
         async updateMainTask(todo) { 
+            todo.task = this.capitalize(todo.task);
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.updateBadgeCount();
             if (this.isOnline && !todo.isPending) { 
                 await window.supabaseClient.from('todos').update({ 
-                    task: todo.task, description: todo.description, 
-                    category: todo.category, importance: todo.importance, deadline: todo.deadline
+                    task: todo.task, description: todo.description, category: todo.category, importance: todo.importance, deadline: todo.deadline
                 }).eq('id', todo.id); 
             } 
         },
@@ -193,11 +193,7 @@ window.todoApp = function() {
             let hash = 0; for (let i = 0; i < (category || '').length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
             return colors[Math.abs(hash) % colors.length];
         },
-        openReadMode(todo) { this.activeTodo = todo; this.editingDesc = false; document.body.style.overflow = 'hidden'; },
-        closeReadMode() { this.activeTodo = null; document.body.style.overflow = 'auto'; }
+        openReadMode(todo) { this.activeTodo = todo; this.editingDesc = false; },
+        closeReadMode() { this.activeTodo = null; }
     };
-}
-
-if ('serviceWorker' in navigator) { 
-    navigator.serviceWorker.register('/sw.js').catch(err => console.error(err)); 
 }
