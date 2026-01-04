@@ -5,13 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>To do</title>
     
-    <link rel="apple-touch-icon" href="icon.jpg?v=1">
-    <link rel="icon" type="image/jpg" href="icon.jpg">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="To do">
-    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22To%20do%22,%22short_name%22:%22To%20do%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#000000%22,%22icons%22:[{%22src%22:%22icon.jpg?v=1%22,%22sizes%22:%22512x512%22,%22type%22:%22image/jpg%22}]}">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -28,6 +21,11 @@
 
     <style>
         [x-cloak] { display: none !important; }
+        /* Custom styling for the native date picker to match your aesthetic */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -74,11 +72,14 @@
                 <div x-show="newTodo.length > 0" x-collapse>
                     <textarea x-model="newDescription" placeholder="Description..." class="w-full bg-transparent text-sm text-slate-500 outline-none mt-3 min-h-[60px] resize-none"></textarea>
                     <div class="flex items-center justify-between pt-4 border-t border-slate-50 mt-3">
-                        <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none">
-                            <option value="1">Low</option>
-                            <option value="2">Medium</option>
-                            <option value="3">High</option>
-                        </select>
+                        <div class="flex items-center space-x-2">
+                            <select x-model="newImportance" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none">
+                                <option value="1">Low</option>
+                                <option value="2">Medium</option>
+                                <option value="3">High</option>
+                            </select>
+                            <input type="date" x-model="newDeadline" class="bg-slate-50 text-[10px] font-black uppercase py-2 px-3 rounded-lg border-none outline-none text-slate-500">
+                        </div>
                         <button @click="addTodo()" class="bg-black text-white px-6 py-2 rounded-2xl text-sm font-bold active:scale-95">Create</button>
                     </div>
                 </div>
@@ -128,6 +129,12 @@
                                                 <div class="w-1.5 h-1.5 rounded-full" :class="todo.importance == 3 ? 'bg-rose-500' : (todo.importance == 2 ? 'bg-amber-400' : 'bg-emerald-500')"></div>
                                                 <span class="text-[9px] font-black uppercase text-slate-400 tracking-tight">Priority</span>
                                             </div>
+                                            <template x-if="todo.deadline">
+                                                <div class="flex items-center space-x-1.5 px-2 py-1 rounded-md border border-slate-200/50 bg-white shadow-sm">
+                                                    <svg class="w-3 h-3" :class="getDeadlineColor(todo.deadline, 'text')" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                    <span class="text-[9px] font-black uppercase tracking-tight" :class="getDeadlineColor(todo.deadline, 'text')" x-text="formatDeadline(todo.deadline)"></span>
+                                                </div>
+                                            </template>
                                         </div>
                                     </div>
                                 </div>
@@ -163,18 +170,13 @@
                         <div class="flex flex-wrap gap-3 mb-8">
                             <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Category</label><input type="text" x-model="activeTodo.category" @blur="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"></div>
                             <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Priority</label><select x-model="activeTodo.importance" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></div>
+                            <div class="flex-1 min-w-[140px]"><label class="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Deadline</label><input type="date" x-model="activeTodo.deadline" @change="updateMainTask(activeTodo)" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-700"></div>
                         </div>
 
                         <div class="mb-8">
                              <div class="flex justify-between items-center mb-3"><h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Context</h4><button @click="editingDesc = !editingDesc" class="text-[10px] font-bold uppercase text-blue-500" x-text="editingDesc ? 'Done' : 'Edit'"></button></div>
                              <div x-show="!editingDesc" @click="editingDesc = true" class="markdown-content text-[16px] text-slate-600 leading-relaxed min-h-[40px] cursor-pointer" x-html="activeTodo.description ? marked.parse(activeTodo.description) : '<span class=\'text-slate-300 italic\'>Add context...</span>'"></div>
                              <textarea x-show="editingDesc" x-model="activeTodo.description" @blur="updateMainTask(activeTodo)" class="w-full h-40 bg-slate-50 border-none rounded-xl p-4 text-sm focus:ring-black" placeholder="Markdown..."></textarea>
-                        </div>
-
-                        <div class="mb-8 p-4 bg-slate-900 rounded-2xl text-[10px] font-mono text-emerald-400 space-y-1">
-                             <div class="flex justify-between border-b border-slate-800 pb-1 mb-1"><span class="text-slate-500 uppercase">System Status</span> <span x-text="isOnline ? 'ONLINE' : 'OFFLINE'"></span></div>
-                             <div class="flex justify-between"><span>SW Version</span> <span>v18</span></div>
-                             <div class="flex justify-between"><span>Icon URL</span> <span x-text="iconStatus">...</span></div>
                         </div>
                         
                         <button @click="closeReadMode()" class="w-full mt-8 bg-slate-100 text-slate-500 py-4 rounded-2xl font-bold mb-10">Close</button>
