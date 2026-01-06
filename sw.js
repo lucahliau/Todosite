@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'todo-shell-v12'; // Bumped version
+const CACHE_NAME = 'todo-shell-v13'; // Bumped version
 
 const STATIC_ASSETS = [
   '/',
