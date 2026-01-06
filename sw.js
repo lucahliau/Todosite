@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'todo-shell-v9'; // Bumped version for layout fix
+const CACHE_NAME = 'todo-shell-v10'; // Bumped version for layout fix
 
 const STATIC_ASSETS = [
   '/',
