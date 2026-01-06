@@ -31,6 +31,7 @@ window.todoApp = function() {
         showArchive: false,
         activeTodo: null,
         inputFocused: false,
+        isSyncingEmail: false, // NEW: State for email sync loading
         
         // Auth State
         session: null,
@@ -118,10 +119,10 @@ window.todoApp = function() {
                 options: {
                     redirectTo: window.location.href,
                     queryParams: {
-                        access_type: 'offline', // Requests a refresh token for background access
-                        prompt: 'consent'       // Forces the consent screen to ensure we get the scope
+                        access_type: 'offline', // Requests a refresh token
+                        prompt: 'consent'       // Forces consent screen to ensure we get scopes
                     },
-                    scopes: 'https://www.googleapis.com/auth/gmail.readonly' // Connects Gmail
+                    scopes: 'https://www.googleapis.com/auth/gmail.readonly' // NEW: Gmail Scope
                 }
             });
         },
@@ -150,7 +151,6 @@ window.todoApp = function() {
 
         updateBadgeCount() {
             if (!('setAppBadge' in navigator)) return;
-            // Only count items in the current context
             const count = this.todos.filter(t => 
                 !t.is_completed && 
                 (t.context || 'personal') === this.context &&
@@ -166,7 +166,6 @@ window.todoApp = function() {
         async fetchTodos() {
             if (!this.isOnline || !window.supabaseClient || !this.session) return;
             
-            // RLS automatically filters by auth.uid()
             const { data, error } = await window.supabaseClient
                 .from('todos')
                 .select('*')
@@ -180,6 +179,63 @@ window.todoApp = function() {
                 
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                 this.updateBadgeCount();
+            }
+        },
+
+        // --- NEW: Gmail Sync Logic ---
+        async syncGmail() {
+            if (!this.session || !this.session.provider_token) {
+                alert("Please sign in with Google to sync emails.");
+                return;
+            }
+
+            this.isSyncingEmail = true;
+
+            try {
+                const response = await fetch('/api/sync-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        provider_token: this.session.provider_token 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.tasks && data.tasks.length > 0) {
+                    let addedCount = 0;
+                    
+                    data.tasks.forEach(t => {
+                        const isDuplicate = this.todos.some(existing => existing.task === t.task);
+                        
+                        if (!isDuplicate) {
+                            this.todos.unshift({
+                                id: 'email-' + Date.now() + Math.random(),
+                                task: t.task,
+                                description: t.description + "\n\n(Imported from Gmail)",
+                                category: 'Email',
+                                importance: t.importance,
+                                deadline: t.deadline,
+                                is_completed: false,
+                                isPending: true, 
+                                context: 'personal',
+                                created_at: new Date().toISOString()
+                            });
+                            addedCount++;
+                        }
+                    });
+
+                    this.syncPending(); // Save to Supabase
+                    alert(`Synced! Found ${addedCount} new tasks.`);
+                } else {
+                    alert("No new tasks found in unread emails.");
+                }
+
+            } catch (error) {
+                console.error('Gmail Sync Error:', error);
+                alert("Failed to sync emails. Please try again.");
+            } finally {
+                this.isSyncingEmail = false;
             }
         },
 
@@ -396,7 +452,6 @@ window.todoApp = function() {
                 const pending = this.todos.filter(t => t.isPending);
                 
                 for (const task of pending) {
-                    // user_id is automatically handled by default auth.uid() in DB
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
                         task: this.capitalize(task.task), 
                         description: task.description || '', 
@@ -462,7 +517,7 @@ window.todoApp = function() {
         touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
         async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
 
-        // Getters - NOW FILTERED BY CONTEXT
+        // Getters
         get activeTasks() { 
             return this.applyFiltersAndSort(
                 this.todos.filter(t => !t.is_completed && (t.context || 'personal') === this.context)

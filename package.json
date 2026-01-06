@@ -1,9 +1,11 @@
 {
   "name": "todo-pwa",
   "version": "1.0.0",
-  "type": "module",   
+  "type": "module",
   "dependencies": {
     "web-push": "^3.6.0",
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "googleapis": "^126.0.1",
+    "@google/generative-ai": "^0.1.3"
   }
 }
