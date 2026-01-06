@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'todo-shell-v11'; // Bumped version to force update
+const CACHE_NAME = 'todo-shell-v12'; // Bumped version
 
 const STATIC_ASSETS = [
   '/',
@@ -49,8 +49,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. OAUTH FIX: Bypass Service Worker for Auth Redirects
-  // This ensures Safari/Browsers handle the login code parameter via network strictly
+  // 1. OAUTH BYPASS: Ensure authentication redirects go to network
   if (url.searchParams.has('code') || url.searchParams.has('error') || url.hash.includes('access_token')) {
     return; 
   }

@@ -4,7 +4,11 @@
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js', { scope: '/' })
-            .then(reg => console.log('Service Worker Registered'))
+            .then(reg => {
+                // Check for updates
+                reg.update();
+                console.log('Service Worker Registered');
+            })
             .catch(err => console.log('Service Worker Failed:', err));
     });
 }
@@ -31,14 +35,13 @@ window.todoApp = function() {
         showArchive: false,
         activeTodo: null,
         inputFocused: false,
-        isSyncingEmail: false, // NEW: State for email sync loading
+        isSyncingEmail: false,
         
         // Auth State
         session: null,
         loading: true,
 
         // Context & Theme State
-        // 'personal' = Light Mode, 'work' = Dark Mode
         context: localStorage.getItem('todo_context') || 'personal', 
 
         // Filter States
@@ -56,12 +59,7 @@ window.todoApp = function() {
         async init() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
             
-            // Check for initial session
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
-            this.session = session;
-            this.loading = false;
-
-            // Listen for auth changes
+            // 1. Listen for auth changes FIRST
             window.supabaseClient.auth.onAuthStateChange((_event, session) => {
                 this.session = session;
                 this.loading = false;
@@ -70,11 +68,26 @@ window.todoApp = function() {
                     this.initRealtime();
                     this.syncPending();
                 } else {
-                    // CLEAR DATA ON LOGOUT
                     this.todos = [];
-                    localStorage.removeItem('todo_cache');
+                    // We don't clear localStorage here to prevent UI flashing, 
+                    // only on explicit sign out.
                 }
             });
+
+            // 2. Check for initial session
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            this.session = session;
+            this.loading = false;
+
+            if (this.session) {
+                // CRITICAL FIX: Clean the URL to remove ?code=...
+                // This prevents the "logout -> login loop" issue where old codes persist.
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                this.initRealtime();
+                this.fetchTodos();
+                this.syncPending();
+            }
 
             // Apply Theme based on Context
             this.applyTheme();
@@ -106,12 +119,6 @@ window.todoApp = function() {
                 this.todos = JSON.parse(cached);
                 this.updateBadgeCount();
             }
-
-            if (this.session) {
-                this.initRealtime();
-                this.fetchTodos();
-                this.syncPending();
-            }
         },
 
         // --- Auth Actions ---
@@ -119,12 +126,14 @@ window.todoApp = function() {
             await window.supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.href,
+                    // CRITICAL FIX: Always redirect to the clean Origin.
+                    // Do NOT use window.location.href, as it might contain old codes.
+                    redirectTo: window.location.origin, 
                     queryParams: {
-                        access_type: 'offline', // Requests a refresh token
-                        prompt: 'consent'       // Forces consent screen to ensure we get scopes
+                        access_type: 'offline', 
+                        prompt: 'consent'
                     },
-                    scopes: 'https://www.googleapis.com/auth/gmail.readonly' // NEW: Gmail Scope
+                    scopes: 'https://www.googleapis.com/auth/gmail.readonly'
                 }
             });
         },
@@ -136,7 +145,7 @@ window.todoApp = function() {
                 console.error("Sign out error", err);
             }
             this.todos = [];
-            localStorage.removeItem('todo_cache');
+            localStorage.clear(); // Clear all data
         },
 
         // Switch between Personal (Light) and Work (Dark)
@@ -188,7 +197,7 @@ window.todoApp = function() {
             }
         },
 
-        // --- NEW: Gmail Sync Logic ---
+        // --- Gmail Sync Logic ---
         async syncGmail() {
             if (!this.session || !this.session.provider_token) {
                 alert("Please sign in with Google to sync emails.");

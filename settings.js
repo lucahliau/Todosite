@@ -41,17 +41,18 @@ window.settingsModal = function() {
             if (confirm("Are you sure you want to sign out?")) {
                 this.isOpen = false;
                 try {
-                    // Calls the signOut method in the parent alpine scope or direct supabase
+                    // Try polite sign out
                     await window.supabaseClient.auth.signOut();
                 } catch (error) {
                     console.error("Sign out error:", error);
                 }
                 
-                // FORCE CLEAR CACHE
-                localStorage.removeItem('todo_cache');
+                // NUCLEAR OPTION: Clear EVERYTHING.
+                // This ensures Supabase tokens (sb-*-auth-token) and todo_cache are gone.
+                localStorage.clear();
                 
-                // Force reload to reset state
-                window.location.reload(); 
+                // Force hard reload to reset application state
+                window.location.href = '/'; 
             }
         },
 
