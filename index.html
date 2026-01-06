@@ -55,21 +55,50 @@
             </div>
         </div>
 
-        <header class="mb-8 flex justify-between items-start">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">To do</h1>
-                <div class="flex items-center space-x-2 mt-1">
-                    <div class="flex items-center space-x-2 bg-white dark:bg-slate-900 px-2 py-1 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer" @click="syncPending()">
-                        <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
+        <header class="mb-8 flex flex-col md:flex-row justify-between md:items-start gap-4">
+            <div class="flex justify-between items-start w-full md:w-auto">
+                <div>
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-3xl font-extrabold tracking-tight">To do</h1>
+                        
+                        <div class="flex p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full">
+                            <button @click="setContext('personal')" 
+                                    class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all"
+                                    :class="context === 'personal' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'">
+                                Personal
+                            </button>
+                            <button @click="setContext('work')" 
+                                    class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all"
+                                    :class="context === 'work' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'">
+                                Work
+                            </button>
+                        </div>
                     </div>
-                    <span class="text-slate-300 text-xs">•</span>
-                    <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })"></p>
+
+                    <div class="flex items-center space-x-2 mt-2">
+                        <div class="flex items-center space-x-2 bg-white dark:bg-slate-900 px-2 py-1 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer" @click="syncPending()">
+                            <div :class="isOnline ? 'bg-green-500 pulse-online' : 'bg-red-500'" class="w-2 h-2 rounded-full transition-colors duration-500"></div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400" x-text="isOnline ? 'Online' : 'Offline'"></span>
+                        </div>
+                        <span class="text-slate-300 text-xs">•</span>
+                        <p class="text-slate-400 text-sm font-medium" x-text="new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })"></p>
+                    </div>
+                </div>
+                
+                <div class="flex md:hidden space-x-2">
+                     <button @click="window.dispatchEvent(new CustomEvent('open-settings'))" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm active:scale-95 transition-all">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </button>
+                    <button @click="showFilters = !showFilters" 
+                            class="px-4 py-2 border rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
+                            :class="(showFilters || hasActiveFilters) ? 'bg-black dark:bg-white text-white dark:text-black border-transparent' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100'">
+                        Filters
+                    </button>
                 </div>
             </div>
             
-            <div class="flex space-x-2">
-                <button @click="fetchTodos()" class="hidden md:flex w-9 h-9 items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm active:scale-95 transition-all">
+            <div class="hidden md:flex space-x-2">
+                <button @click="fetchTodos()" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm active:scale-95 transition-all">
                     <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
@@ -168,7 +197,7 @@
 
         <main class="space-y-12">
             <div x-show="filterStatus !== 'completed'" class="space-y-6">
-                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Active Tasks</h2>
+                <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1" x-text="context + ' Tasks'"></h2>
                 <template x-for="todo in activeTasks" :key="todo.id">
                     <div class="space-y-2">
                         <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm transition-all" :class="todo.isPending ? 'border-amber-200 bg-amber-50/10' : ''">

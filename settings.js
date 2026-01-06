@@ -13,33 +13,20 @@ window.settingsModal = function() {
         isActive: false,
         statusMsg: '',
         permission: 'default',
-        darkMode: localStorage.getItem('theme') === 'dark',
 
         init() {
             this.refreshState();
             window.addEventListener('open-settings', () => {
                 this.isOpen = true;
-                // Sync state when opening
-                this.darkMode = document.documentElement.classList.contains('dark');
                 this.refreshState();
             });
         },
-
-        setTheme(mode) {
-            if (mode === 'dark' && !this.darkMode) {
-                this.darkMode = true;
-                window.dispatchEvent(new CustomEvent('toggle-dark-mode'));
-            } else if (mode === 'light' && this.darkMode) {
-                this.darkMode = false;
-                window.dispatchEvent(new CustomEvent('toggle-dark-mode'));
-            }
-        },
         
         openArchive() {
-    this.isOpen = false;
-    // Dispatch immediately so the Archive modal opens while Settings is fading out
-    window.dispatchEvent(new CustomEvent('open-archive'));
-},
+            this.isOpen = false;
+            // Dispatch immediately so the Archive modal opens while Settings is fading out
+            window.dispatchEvent(new CustomEvent('open-archive'));
+        },
 
         triggerArchiveCompleted() {
             this.isOpen = false;
@@ -107,22 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="px-8 pb-8 overflow-y-auto no-scrollbar space-y-6">
                     
-                    <div>
-                        <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Appearance</h3>
-                        <div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                            <button @click="setTheme('light')" 
-                                    class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" 
-                                    :class="!darkMode ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-300'">
-                                Light
-                            </button>
-                            <button @click="setTheme('dark')" 
-                                    class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" 
-                                    :class="darkMode ? 'bg-slate-700 shadow-sm text-white' : 'text-slate-500 hover:text-slate-300'">
-                                Dark
-                            </button>
-                        </div>
-                    </div>
-
                     <div>
                         <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Archive Tasks</h3>
                         <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">

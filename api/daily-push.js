@@ -56,7 +56,7 @@ export default async function handler(request, response) {
             messageBody = `Here are your most important tasks:\n`;
             
             topFive.forEach((t, index) => {
-                let taskTitle = t.task.length > 40 ? t.task.substring(0, 40) + "..." : t.task;
+                let taskTitle = t.task.length > 30 ? t.task.substring(0, 30) + "..." : t.task;
                 let dateLabel = "";
 
                 if (t.deadline) {

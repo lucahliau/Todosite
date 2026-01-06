@@ -3,7 +3,6 @@
 // --- 1. Offline Support: Register the Service Worker ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        // Explicitly define scope as '/' to ensure it controls the whole domain
         navigator.serviceWorker.register('./sw.js', { scope: '/' })
             .then(reg => console.log('Service Worker Registered'))
             .catch(err => console.log('Service Worker Failed:', err));
@@ -32,8 +31,11 @@ window.todoApp = function() {
         showArchive: false,
         activeTodo: null,
         inputFocused: false,
-        darkMode: localStorage.getItem('theme') === 'dark',
         
+        // Context & Theme State
+        // 'personal' = Light Mode, 'work' = Dark Mode
+        context: localStorage.getItem('todo_context') || 'personal', 
+
         // Filter States
         filterStatus: 'all',
         sortBy: 'newest',
@@ -49,15 +51,13 @@ window.todoApp = function() {
         async init() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
             
-            // Apply Dark Mode immediately
-            if (this.darkMode) document.documentElement.classList.add('dark');
+            // Apply Theme based on Context
+            this.applyTheme();
             
             // Prevent duplicate listeners
             if (!window._hasInitListeners) {
-                // Re-sync when connection returns
                 window.addEventListener('online', () => { 
                     this.isOnline = true; 
-                    // Trigger sync, but don't await blocking the UI
                     this.syncPending(); 
                     this.fetchTodos(); 
                 });
@@ -66,7 +66,6 @@ window.todoApp = function() {
                 });
                 
                 // Settings Events
-                window.addEventListener('toggle-dark-mode', () => this.toggleDarkMode());
                 window.addEventListener('open-archive', () => { this.showArchive = true; this.fetchArchive(); });
                 window.addEventListener('archive-completed', () => this.archiveCompletedTasks());
                 window.addEventListener('archive-old', () => this.archiveOldTasks());
@@ -74,33 +73,43 @@ window.todoApp = function() {
                 window._hasInitListeners = true;
             }
 
-            // Load from Cache immediately (Instant Load)
+            // Load from Cache
             const cached = localStorage.getItem('todo_cache');
             if (cached) {
                 this.todos = JSON.parse(cached);
                 this.updateBadgeCount();
             }
 
-            // Start Realtime Listener
             this.initRealtime();
-
-            // Fetch fresh data
             this.fetchTodos();
             this.syncPending();
         },
 
-        toggleDarkMode() {
-            this.darkMode = !this.darkMode;
-            localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
-            if (this.darkMode) document.documentElement.classList.add('dark');
-            else document.documentElement.classList.remove('dark');
+        // Switch between Personal (Light) and Work (Dark)
+        setContext(mode) {
+            this.context = mode;
+            localStorage.setItem('todo_context', mode);
+            this.applyTheme();
+            this.showFilters = false; // Reset filters when switching views
+        },
+
+        applyTheme() {
+            if (this.context === 'work') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
         },
 
         updateBadgeCount() {
             if (!('setAppBadge' in navigator)) return;
+            // Only count items in the current context
             const count = this.todos.filter(t => 
-                !t.is_completed && (t.deadline || parseInt(t.importance) === 3)
+                !t.is_completed && 
+                (t.context || 'personal') === this.context &&
+                (t.deadline || parseInt(t.importance) === 3)
             ).length;
+
             if (count > 0) navigator.setAppBadge(count).catch(() => {});
             else navigator.clearAppBadge().catch(() => {});
         },
@@ -110,6 +119,7 @@ window.todoApp = function() {
         async fetchTodos() {
             if (!this.isOnline || !window.supabaseClient) return;
             
+            // We fetch ALL tasks and filter client-side to ensure offline switching works
             const { data, error } = await window.supabaseClient
                 .from('todos')
                 .select('*')
@@ -117,14 +127,8 @@ window.todoApp = function() {
                 .order('created_at', { ascending: false });
                 
             if (!error && data) {
-                // FIXED: Don't overwrite pending tasks!
-                // 1. Keep tasks that are still pending (have 'temp-' IDs)
                 const pendingTasks = this.todos.filter(t => t.isPending);
-                
-                // 2. Prepare server tasks
                 const serverTasks = data.map(t => this.sanitizeTodo(t));
-                
-                // 3. Merge: Pending tasks go first so they don't disappear
                 this.todos = [...pendingTasks, ...serverTasks];
                 
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
@@ -149,7 +153,6 @@ window.todoApp = function() {
 
         initRealtime() {
             if (!window.supabaseClient) return;
-
             if (this.realtimeChannel) window.supabaseClient.removeChannel(this.realtimeChannel);
 
             this.realtimeChannel = window.supabaseClient
@@ -163,13 +166,11 @@ window.todoApp = function() {
         handleRealtimeEvent(payload) {
             const { eventType, new: newRec, old: oldRec } = payload;
 
-            // 1. INSERT
             if (eventType === 'INSERT') {
                 if (!this.todos.some(t => t.id === newRec.id)) {
                     this.todos.unshift(this.sanitizeTodo(newRec));
                 }
             } 
-            // 2. UPDATE
             else if (eventType === 'UPDATE') {
                 if (newRec.is_deleted) {
                     this.todos = this.todos.filter(t => t.id !== newRec.id);
@@ -182,7 +183,6 @@ window.todoApp = function() {
                     }
                 }
             } 
-            // 3. DELETE
             else if (eventType === 'DELETE') {
                 this.todos = this.todos.filter(t => t.id !== oldRec.id);
             }
@@ -209,6 +209,7 @@ window.todoApp = function() {
                 is_completed: false, 
                 isPending: true,
                 is_deleted: false,
+                context: this.context, // Auto-assign current context
                 created_at: new Date().toISOString(), 
                 subtasks: [] 
             };
@@ -246,7 +247,7 @@ window.todoApp = function() {
         },
 
         async permanentDelete(id) {
-            if (confirm("Permanently delete this task? This cannot be undone.")) {
+            if (confirm("Permanently delete this task?")) {
                 this.archivedTodos = this.archivedTodos.filter(t => t.id !== id);
                 if (this.isOnline) {
                     await window.supabaseClient.from('todos').delete().eq('id', id);
@@ -255,9 +256,10 @@ window.todoApp = function() {
         },
 
         async archiveCompletedTasks() {
-            if (!confirm("Move all completed tasks to archive?")) return;
+            // Only archive completed tasks in the CURRENT view
+            if (!confirm(`Move completed ${this.context} tasks to archive?`)) return;
             
-            const completed = this.todos.filter(t => t.is_completed);
+            const completed = this.todos.filter(t => t.is_completed && (t.context || 'personal') === this.context);
             const completedIds = completed.map(t => t.id);
 
             if (completedIds.length === 0) {
@@ -265,22 +267,25 @@ window.todoApp = function() {
                 return;
             }
 
-            this.todos = this.todos.filter(t => !t.is_completed);
+            // Remove only the filtered ones from local state
+            this.todos = this.todos.filter(t => !completedIds.includes(t.id));
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             
             if (this.isOnline) {
                 await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', completedIds);
             }
-            alert("Completed tasks archived.");
         },
 
         async archiveOldTasks() {
-            if (!confirm("Archive tasks created more than 4 weeks ago?")) return;
+            if (!confirm(`Archive ${this.context} tasks older than 4 weeks?`)) return;
 
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - 28);
 
-            const oldTasks = this.todos.filter(t => new Date(t.created_at) < cutoff);
+            const oldTasks = this.todos.filter(t => 
+                (t.context || 'personal') === this.context && 
+                new Date(t.created_at) < cutoff
+            );
             const oldIds = oldTasks.map(t => t.id);
 
             if (oldIds.length === 0) { 
@@ -294,7 +299,6 @@ window.todoApp = function() {
             if (this.isOnline) {
                 await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', oldIds);
             }
-            alert(`${oldIds.length} old tasks archived.`);
         },
 
         sanitizeTodo(t) { 
@@ -305,6 +309,7 @@ window.todoApp = function() {
                 category: t.category || null,
                 deadline: t.deadline || null, 
                 is_deleted: t.is_deleted || false,
+                context: t.context || 'personal', // Default to personal for legacy tasks
                 subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] 
             }; 
         },
@@ -340,7 +345,6 @@ window.todoApp = function() {
             if (!this.isOnline || this.isSyncing || !window.supabaseClient) return;
             this.isSyncing = true;
             try {
-                // FIXED: Snapshot pending tasks
                 const pending = this.todos.filter(t => t.isPending);
                 
                 for (const task of pending) {
@@ -352,6 +356,7 @@ window.todoApp = function() {
                         deadline: task.deadline || null, 
                         is_completed: task.is_completed || false, 
                         is_deleted: false,
+                        context: task.context || 'personal', // Sync context
                         subtasks: task.subtasks || [] 
                     }]).select();
 
@@ -359,21 +364,13 @@ window.todoApp = function() {
                         const realTask = data[0];
                         const tempId = task.id;
                         
-                        // FIXED: Check for duplicates (Realtime vs Sync Race Condition)
                         const existingRealIndex = this.todos.findIndex(t => t.id === realTask.id);
                         const tempIndex = this.todos.findIndex(t => t.id === tempId);
                         
                         if (existingRealIndex !== -1) {
-                            // Real task already exists (e.g. from fetchTodos or Realtime). 
-                            // Remove the temp task so we don't have duplicates.
-                            if (tempIndex !== -1) {
-                                this.todos.splice(tempIndex, 1);
-                            }
+                            if (tempIndex !== -1) this.todos.splice(tempIndex, 1);
                         } else {
-                            // Normal case: Replace temp ID with real ID
-                            if (tempIndex !== -1) {
-                                this.todos[tempIndex] = this.sanitizeTodo(realTask);
-                            }
+                            if (tempIndex !== -1) this.todos[tempIndex] = this.sanitizeTodo(realTask);
                         }
                     }
                 }
@@ -401,7 +398,12 @@ window.todoApp = function() {
             this.updateBadgeCount();
             if (this.isOnline && !todo.isPending) { 
                 await window.supabaseClient.from('todos').update({ 
-                    task: todo.task, description: todo.description, category: todo.category, importance: todo.importance, deadline: todo.deadline
+                    task: todo.task, 
+                    description: todo.description, 
+                    category: todo.category, 
+                    importance: todo.importance, 
+                    deadline: todo.deadline,
+                    context: todo.context // Ensure context is preserved
                 }).eq('id', todo.id); 
             } 
         },
@@ -411,9 +413,17 @@ window.todoApp = function() {
         touchMove(e) { if (window.scrollY > 10 || this.startY === 0) return; const y = e.touches ? e.touches[0].pageY : e.pageY; this.pullDistance = Math.max(0, y - this.startY); if (this.pullDistance > 20) e.preventDefault(); },
         async touchEnd() { if (this.pullDistance > 80) await this.fetchTodos(); this.startY = 0; this.pullDistance = 0; },
 
-        // Getters
-        get activeTasks() { return this.applyFiltersAndSort(this.todos.filter(t => !t.is_completed)); },
-        get completedTasks() { return this.applyFiltersAndSort(this.todos.filter(t => t.is_completed)); },
+        // Getters - NOW FILTERED BY CONTEXT
+        get activeTasks() { 
+            return this.applyFiltersAndSort(
+                this.todos.filter(t => !t.is_completed && (t.context || 'personal') === this.context)
+            ); 
+        },
+        get completedTasks() { 
+            return this.applyFiltersAndSort(
+                this.todos.filter(t => t.is_completed && (t.context || 'personal') === this.context)
+            ); 
+        },
 
         get hasActiveFilters() {
             return this.filterStatus !== 'all' || 
@@ -424,7 +434,8 @@ window.todoApp = function() {
         },
 
         get filteredArchive() {
-            let items = this.archivedTodos;
+            // Archive also respects context
+            let items = this.archivedTodos.filter(t => (t.context || 'personal') === this.context);
             if (this.searchQuery) {
                 items = items.filter(t => t.task.toLowerCase().includes(this.searchQuery.toLowerCase()));
             }
@@ -454,7 +465,12 @@ window.todoApp = function() {
             }); 
         },
 
-        get uniqueCategories() { return [...new Set(this.todos.map(t => t.category).filter(c => c))].sort(); },
+        // Context-aware categories
+        get uniqueCategories() { 
+            const contextTodos = this.todos.filter(t => (t.context || 'personal') === this.context);
+            return [...new Set(contextTodos.map(t => t.category).filter(c => c))].sort(); 
+        },
+        
         applyCategory(cat) { this.newTodo = this.newTodo.replace(/#\w+/g, '').trim() + ' #' + cat; },
         
         getTagColor(category) {
