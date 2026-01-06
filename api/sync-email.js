@@ -2,7 +2,7 @@ import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-    console.log("--- [DEBUG] Starting Email Sync ---");
+    console.log("--- [DEBUG] Starting Email Sync (Model: gemini-2.5-flash-lite) ---");
 
     // 1. Security & Method Check
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
@@ -20,6 +20,7 @@ export default async function handler(req, res) {
         const gmail = google.gmail({ version: 'v1', auth });
 
         // 3. Search Criteria
+        // Filters for emails in the last 7 days with specific keywords
         const keywords = ['appointment', 'reservation', 'meeting', 'interview', 'schedule', 'deadline', 'due', 'booking'];
         const query = `newer_than:7d (${keywords.join(' OR ')})`;
 
@@ -38,9 +39,12 @@ export default async function handler(req, res) {
             return res.status(200).json({ tasks: [], message: 'No matching emails found.' });
         }
 
-        // 4. Initialize Gemini
+        // 4. Initialize Gemini (Updated for 2026 Standards)
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest"});
+        
+        // FIX: Use the valid Jan 2026 stable model "gemini-2.5-flash-lite"
+        // Old "gemini-1.5-flash" is deprecated.
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
         const newTasks = [];
 
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
                 const snippet = emailData.data.snippet || '';
 
                 console.log(`   Subject: "${subject}"`);
-                console.log(`   Snippet: "${snippet.substring(0, 100)}..."`);
+                // console.log(`   Snippet: "${snippet.substring(0, 100)}..."`);
 
                 // B. Ask AI to extract task
                 const prompt = `
@@ -88,19 +92,24 @@ export default async function handler(req, res) {
                 const response = result.response;
                 const text = response.text().replace(/```json|```/g, '').trim();
                 
-                console.log(`   AI Raw Output: ${text}`);
+                // console.log(`   AI Raw Output: ${text}`);
 
                 if (text && text !== 'null') {
-                    const taskData = JSON.parse(text);
-                    if (taskData && taskData.task) {
-                        console.log(`   -> MATCH: Created task "${taskData.task}"`);
-                        newTasks.push({
-                            ...taskData,
-                            category: 'Email', 
-                            emailId: msg.id 
-                        });
-                    } else {
-                        console.log(`   -> IGNORED: JSON valid but missing 'task' field.`);
+                    // Try/Catch for JSON parsing specifically
+                    try {
+                        const taskData = JSON.parse(text);
+                        if (taskData && taskData.task) {
+                            console.log(`   -> MATCH: Created task "${taskData.task}"`);
+                            newTasks.push({
+                                ...taskData,
+                                category: 'Email', 
+                                emailId: msg.id 
+                            });
+                        } else {
+                            console.log(`   -> IGNORED: JSON valid but missing 'task' field.`);
+                        }
+                    } catch (jsonErr) {
+                         console.error(`   -> PARSE ERROR: Could not parse AI response as JSON: ${text}`);
                     }
                 } else {
                     console.log(`   -> IGNORED: AI returned null.`);
