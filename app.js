@@ -97,10 +97,7 @@ window.todoApp = function() {
                 window._hasInitListeners = true;
             }
 
-            // Load from Cache (only if we have a guess of user, but Supabase SDK handles session persistence)
-            // Ideally we only show cached data if matches user, but for simplicity we rely on online fetch.
-            // If offline, we could show cached but we'd need to cache per user. 
-            // For now, we allow loading cache but RLS protects syncing.
+            // Load from Cache
             const cached = localStorage.getItem('todo_cache');
             if (cached) {
                 this.todos = JSON.parse(cached);
@@ -119,7 +116,12 @@ window.todoApp = function() {
             await window.supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.href
+                    redirectTo: window.location.href,
+                    queryParams: {
+                        access_type: 'offline', // Requests a refresh token for background access
+                        prompt: 'consent'       // Forces the consent screen to ensure we get the scope
+                    },
+                    scopes: 'https://www.googleapis.com/auth/gmail.readonly' // Connects Gmail
                 }
             });
         },
@@ -394,8 +396,7 @@ window.todoApp = function() {
                 const pending = this.todos.filter(t => t.isPending);
                 
                 for (const task of pending) {
-                    // user_id is automatically handled by default auth.uid() in DB, 
-                    // but we can pass it if we want to be explicit.
+                    // user_id is automatically handled by default auth.uid() in DB
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
                         task: this.capitalize(task.task), 
                         description: task.description || '', 
@@ -406,7 +407,6 @@ window.todoApp = function() {
                         is_deleted: false,
                         context: task.context || 'personal', 
                         subtasks: task.subtasks || []
-                        // user_id will default to auth.uid()
                     }]).select();
 
                     if (!error && data?.length > 0) {
