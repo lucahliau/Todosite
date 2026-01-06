@@ -2,14 +2,14 @@ import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-    console.log("--- [DEBUG] Starting Email Sync (Model: gemini-2.5-flash-lite) ---");
+    // 1. Model Selection: Using the "Pro" / Reasoning model for better date deduction
+    const MODEL_NAME = "gemini-2.5-pro"; 
+    console.log(`--- [DEBUG] Starting Email Sync (Model: ${MODEL_NAME}) ---`);
 
-    // 1. Security & Method Check
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
     
     const { provider_token } = req.body;
     if (!provider_token) {
-        console.error("--- [DEBUG] Error: Missing provider_token ---");
         return res.status(401).json({ error: 'Missing Google Access Token' });
     }
 
@@ -20,8 +20,8 @@ export default async function handler(req, res) {
         const gmail = google.gmail({ version: 'v1', auth });
 
         // 3. Search Criteria
-        // Filters for emails in the last 7 days with specific keywords
-        const keywords = ['appointment', 'reservation', 'meeting', 'interview', 'schedule', 'deadline', 'due', 'booking'];
+        // Broadened slightly to capture context, but still recent
+        const keywords = ['appointment', 'reservation', 'meeting', 'interview', 'schedule', 'deadline', 'due', 'booking', 'flight', 'reminder'];
         const query = `newer_than:7d (${keywords.join(' OR ')})`;
 
         console.log(`--- [DEBUG] Gmail Query: ${query} ---`);
@@ -39,12 +39,9 @@ export default async function handler(req, res) {
             return res.status(200).json({ tasks: [], message: 'No matching emails found.' });
         }
 
-        // 4. Initialize Gemini (Updated for 2026 Standards)
+        // 4. Initialize Gemini
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        
-        // FIX: Use the valid Jan 2026 stable model "gemini-2.5-flash-lite"
-        // Old "gemini-1.5-flash" is deprecated.
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
         const newTasks = [];
 
@@ -62,28 +59,43 @@ export default async function handler(req, res) {
 
                 const headers = emailData.data.payload.headers;
                 const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
+                const dateHeader = headers.find(h => h.name === 'Date')?.value || 'Unknown Date';
                 const snippet = emailData.data.snippet || '';
 
                 console.log(`   Subject: "${subject}"`);
-                // console.log(`   Snippet: "${snippet.substring(0, 100)}..."`);
 
-                // B. Ask AI to extract task
+                // B. Optimized Reasoning Prompt
                 const prompt = `
-                Analyze this email to see if it contains a real, actionable task or appointment for me.
-                
-                Subject: "${subject}"
-                Snippet: "${snippet}"
+                You are an expert executive assistant. Analyze this email to find a specific, actionable task or event.
 
-                Instructions:
-                1. If this is a confirmation (e.g. flight, restaurant, doctor), a meeting request, or a specific task request, extract the details.
-                2. If this is SPAM, a newsletter, a receipt without an action, or an advertisement, RETURN "null".
-                3. Do not include markdown formatting in your response.
+                METADATA:
+                - Email Subject: "${subject}"
+                - Email Snippet: "${snippet}"
+                - Email Sent Date: "${dateHeader}"
 
-                If valid, return a JSON object with this format:
+                INSTRUCTIONS:
+                1. **Date Intelligence**:
+                   - CRITICAL: Distinguish between the "Sent Date", "Forwarded Date", and the ACTUAL "Event Date".
+                   - Example: If an email was forwarded on Jan 5th, but discusses an appointment on Jan 10th, the deadline is Jan 10th.
+                   - If the email implies "tomorrow" or "next Friday", calculate the date relative to the "Email Sent Date".
+
+                2. **Importance Scoring (1-3)**:
+                   - 3 (High): Flights, Critical deadlines, Doctor appointments, Bills due now, Explicit "Urgent" requests.
+                   - 2 (Medium): Work meetings, Dinner reservations, Calls, Standard tasks.
+                   - 1 (Low): Casual reminders, "Check this out", General to-dos without hard consequences.
+
+                3. **Description**:
+                   - Extract a RICH description. Include the "Who" (people/companies), "Where" (locations/URLs), and "Why". 
+                   - Do not just copy the subject.
+
+                4. **Filtering**:
+                   - If this is a newsletter, receipt (without action), spam, or purely informational, RETURN "null" (string).
+
+                OUTPUT FORMAT (Strict JSON only, no markdown):
                 {
-                    "task": "Short title (max 6 words)",
-                    "description": "Summary including specific time/location/links",
-                    "importance": 2, 
+                    "task": "Concise Title (Max 6 words)",
+                    "description": "Detailed context including time, location, and key details.",
+                    "importance": 1 | 2 | 3, 
                     "deadline": "YYYY-MM-DD" (or null if none)
                 }
                 `;
@@ -92,24 +104,21 @@ export default async function handler(req, res) {
                 const response = result.response;
                 const text = response.text().replace(/```json|```/g, '').trim();
                 
-                // console.log(`   AI Raw Output: ${text}`);
-
                 if (text && text !== 'null') {
-                    // Try/Catch for JSON parsing specifically
                     try {
                         const taskData = JSON.parse(text);
                         if (taskData && taskData.task) {
-                            console.log(`   -> MATCH: Created task "${taskData.task}"`);
+                            console.log(`   -> MATCH: [${taskData.deadline || 'No Date'}] ${taskData.task} (Imp: ${taskData.importance})`);
                             newTasks.push({
                                 ...taskData,
                                 category: 'Email', 
                                 emailId: msg.id 
                             });
                         } else {
-                            console.log(`   -> IGNORED: JSON valid but missing 'task' field.`);
+                            console.log(`   -> IGNORED: JSON valid but missing 'task'.`);
                         }
                     } catch (jsonErr) {
-                         console.error(`   -> PARSE ERROR: Could not parse AI response as JSON: ${text}`);
+                         console.error(`   -> PARSE ERROR: ${text}`);
                     }
                 } else {
                     console.log(`   -> IGNORED: AI returned null.`);
