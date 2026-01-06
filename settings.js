@@ -24,7 +24,6 @@ window.settingsModal = function() {
         
         openArchive() {
             this.isOpen = false;
-            // Dispatch immediately so the Archive modal opens while Settings is fading out
             window.dispatchEvent(new CustomEvent('open-archive'));
         },
 
@@ -36,6 +35,15 @@ window.settingsModal = function() {
         triggerArchiveOld() {
             this.isOpen = false;
             setTimeout(() => window.dispatchEvent(new CustomEvent('archive-old')), 200);
+        },
+
+        async signOut() {
+            if (confirm("Are you sure you want to sign out?")) {
+                this.isOpen = false;
+                // Calls the signOut method in the parent alpine scope or direct supabase
+                await window.supabaseClient.auth.signOut();
+                window.location.reload(); 
+            }
         },
 
         refreshState() {
@@ -66,7 +74,13 @@ window.settingsModal = function() {
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(SUPABASE_CONFIG.VAPID_PUBLIC_KEY)
                 });
-                const { error } = await window.supabaseClient.from('push_subscriptions').insert([{ subscription: JSON.parse(JSON.stringify(sub)), user_agent: navigator.userAgent }]);
+                
+                // Now includes user_id implicitly via RLS policies
+                const { error } = await window.supabaseClient.from('push_subscriptions').insert([{ 
+                    subscription: JSON.parse(JSON.stringify(sub)), 
+                    user_agent: navigator.userAgent 
+                }]);
+                
                 if (error) throw error;
                 this.isActive = true;
             } catch (err) { console.error(err); alert("Subscription failed: " + err.message); }
@@ -146,6 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span x-text="isActive ? 'Active' : 'Enable'"></span>
                             </button>
                         </div>
+                    </div>
+
+                    <div>
+                         <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest px-1">Account</h3>
+                         <button @click="signOut()" class="w-full py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors">
+                            Sign Out
+                         </button>
                     </div>
 
                 </div>

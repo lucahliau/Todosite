@@ -32,6 +32,10 @@ window.todoApp = function() {
         activeTodo: null,
         inputFocused: false,
         
+        // Auth State
+        session: null,
+        loading: true,
+
         // Context & Theme State
         // 'personal' = Light Mode, 'work' = Dark Mode
         context: localStorage.getItem('todo_context') || 'personal', 
@@ -51,6 +55,24 @@ window.todoApp = function() {
         async init() {
             if (window.marked) marked.setOptions({ gfm: true, breaks: true });
             
+            // Check for initial session
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            this.session = session;
+            this.loading = false;
+
+            // Listen for auth changes
+            window.supabaseClient.auth.onAuthStateChange((_event, session) => {
+                this.session = session;
+                this.loading = false;
+                if (session) {
+                    this.fetchTodos();
+                    this.initRealtime();
+                    this.syncPending();
+                } else {
+                    this.todos = [];
+                }
+            });
+
             // Apply Theme based on Context
             this.applyTheme();
             
@@ -58,8 +80,10 @@ window.todoApp = function() {
             if (!window._hasInitListeners) {
                 window.addEventListener('online', () => { 
                     this.isOnline = true; 
-                    this.syncPending(); 
-                    this.fetchTodos(); 
+                    if (this.session) {
+                        this.syncPending(); 
+                        this.fetchTodos();
+                    }
                 });
                 window.addEventListener('offline', () => { 
                     this.isOnline = false; 
@@ -73,16 +97,37 @@ window.todoApp = function() {
                 window._hasInitListeners = true;
             }
 
-            // Load from Cache
+            // Load from Cache (only if we have a guess of user, but Supabase SDK handles session persistence)
+            // Ideally we only show cached data if matches user, but for simplicity we rely on online fetch.
+            // If offline, we could show cached but we'd need to cache per user. 
+            // For now, we allow loading cache but RLS protects syncing.
             const cached = localStorage.getItem('todo_cache');
             if (cached) {
                 this.todos = JSON.parse(cached);
                 this.updateBadgeCount();
             }
 
-            this.initRealtime();
-            this.fetchTodos();
-            this.syncPending();
+            if (this.session) {
+                this.initRealtime();
+                this.fetchTodos();
+                this.syncPending();
+            }
+        },
+
+        // --- Auth Actions ---
+        async signInWithGoogle() {
+            await window.supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.href
+                }
+            });
+        },
+
+        async signOut() {
+            await window.supabaseClient.auth.signOut();
+            this.todos = [];
+            localStorage.removeItem('todo_cache');
         },
 
         // Switch between Personal (Light) and Work (Dark)
@@ -90,7 +135,7 @@ window.todoApp = function() {
             this.context = mode;
             localStorage.setItem('todo_context', mode);
             this.applyTheme();
-            this.showFilters = false; // Reset filters when switching views
+            this.showFilters = false; 
         },
 
         applyTheme() {
@@ -117,9 +162,9 @@ window.todoApp = function() {
         // --- Fetching ---
 
         async fetchTodos() {
-            if (!this.isOnline || !window.supabaseClient) return;
+            if (!this.isOnline || !window.supabaseClient || !this.session) return;
             
-            // We fetch ALL tasks and filter client-side to ensure offline switching works
+            // RLS automatically filters by auth.uid()
             const { data, error } = await window.supabaseClient
                 .from('todos')
                 .select('*')
@@ -137,7 +182,7 @@ window.todoApp = function() {
         },
 
         async fetchArchive() {
-            if (!this.isOnline || !window.supabaseClient) return;
+            if (!this.isOnline || !window.supabaseClient || !this.session) return;
             const { data, error } = await window.supabaseClient
                 .from('todos')
                 .select('*')
@@ -152,14 +197,17 @@ window.todoApp = function() {
         // --- Realtime Sync ---
 
         initRealtime() {
-            if (!window.supabaseClient) return;
+            if (!window.supabaseClient || !this.session) return;
             if (this.realtimeChannel) window.supabaseClient.removeChannel(this.realtimeChannel);
 
             this.realtimeChannel = window.supabaseClient
                 .channel('public:todos')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, payload => {
-                    this.handleRealtimeEvent(payload);
-                })
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${this.session.user.id}` }, 
+                    payload => {
+                        this.handleRealtimeEvent(payload);
+                    }
+                )
                 .subscribe();
         },
 
@@ -209,7 +257,7 @@ window.todoApp = function() {
                 is_completed: false, 
                 isPending: true,
                 is_deleted: false,
-                context: this.context, // Auto-assign current context
+                context: this.context, 
                 created_at: new Date().toISOString(), 
                 subtasks: [] 
             };
@@ -220,7 +268,7 @@ window.todoApp = function() {
             this.newTodo = ''; this.newDescription = ''; this.newDeadline = ''; this.inputFocused = false;
             this.updateBadgeCount();
             
-            if (this.isOnline) this.syncPending();
+            if (this.isOnline && this.session) this.syncPending();
         },
 
         async deleteTodo(id) { 
@@ -229,7 +277,7 @@ window.todoApp = function() {
                 localStorage.setItem('todo_cache', JSON.stringify(this.todos));
                 this.updateBadgeCount();
 
-                if (this.isOnline && !id.toString().startsWith('temp')) {
+                if (this.isOnline && !id.toString().startsWith('temp') && this.session) {
                     await window.supabaseClient.from('todos').update({ is_deleted: true }).eq('id', id);
                 }
             } 
@@ -241,7 +289,7 @@ window.todoApp = function() {
             this.todos.unshift(todo);
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             
-            if (this.isOnline) {
+            if (this.isOnline && this.session) {
                 await window.supabaseClient.from('todos').update({ is_deleted: false }).eq('id', todo.id);
             }
         },
@@ -249,14 +297,13 @@ window.todoApp = function() {
         async permanentDelete(id) {
             if (confirm("Permanently delete this task?")) {
                 this.archivedTodos = this.archivedTodos.filter(t => t.id !== id);
-                if (this.isOnline) {
+                if (this.isOnline && this.session) {
                     await window.supabaseClient.from('todos').delete().eq('id', id);
                 }
             }
         },
 
         async archiveCompletedTasks() {
-            // Only archive completed tasks in the CURRENT view
             if (!confirm(`Move completed ${this.context} tasks to archive?`)) return;
             
             const completed = this.todos.filter(t => t.is_completed && (t.context || 'personal') === this.context);
@@ -267,11 +314,10 @@ window.todoApp = function() {
                 return;
             }
 
-            // Remove only the filtered ones from local state
             this.todos = this.todos.filter(t => !completedIds.includes(t.id));
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             
-            if (this.isOnline) {
+            if (this.isOnline && this.session) {
                 await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', completedIds);
             }
         },
@@ -296,7 +342,7 @@ window.todoApp = function() {
             this.todos = this.todos.filter(t => !oldIds.includes(t.id));
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
 
-            if (this.isOnline) {
+            if (this.isOnline && this.session) {
                 await window.supabaseClient.from('todos').update({ is_deleted: true }).in('id', oldIds);
             }
         },
@@ -309,7 +355,7 @@ window.todoApp = function() {
                 category: t.category || null,
                 deadline: t.deadline || null, 
                 is_deleted: t.is_deleted || false,
-                context: t.context || 'personal', // Default to personal for legacy tasks
+                context: t.context || 'personal', 
                 subtasks: Array.isArray(t.subtasks) ? t.subtasks : [] 
             }; 
         },
@@ -342,12 +388,14 @@ window.todoApp = function() {
         },
 
         async syncPending() {
-            if (!this.isOnline || this.isSyncing || !window.supabaseClient) return;
+            if (!this.isOnline || this.isSyncing || !window.supabaseClient || !this.session) return;
             this.isSyncing = true;
             try {
                 const pending = this.todos.filter(t => t.isPending);
                 
                 for (const task of pending) {
+                    // user_id is automatically handled by default auth.uid() in DB, 
+                    // but we can pass it if we want to be explicit.
                     const { data, error } = await window.supabaseClient.from('todos').insert([{ 
                         task: this.capitalize(task.task), 
                         description: task.description || '', 
@@ -356,8 +404,9 @@ window.todoApp = function() {
                         deadline: task.deadline || null, 
                         is_completed: task.is_completed || false, 
                         is_deleted: false,
-                        context: task.context || 'personal', // Sync context
-                        subtasks: task.subtasks || [] 
+                        context: task.context || 'personal', 
+                        subtasks: task.subtasks || []
+                        // user_id will default to auth.uid()
                     }]).select();
 
                     if (!error && data?.length > 0) {
@@ -386,7 +435,7 @@ window.todoApp = function() {
             todo.is_completed = !todo.is_completed; 
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.updateBadgeCount();
-            if (this.isOnline && !todo.isPending) {
+            if (this.isOnline && !todo.isPending && this.session) {
                 await window.supabaseClient.from('todos').update({ is_completed: todo.is_completed }).eq('id', todo.id); 
             }
         },
@@ -396,14 +445,14 @@ window.todoApp = function() {
             if (todo.category === '') todo.category = null;
             localStorage.setItem('todo_cache', JSON.stringify(this.todos));
             this.updateBadgeCount();
-            if (this.isOnline && !todo.isPending) { 
+            if (this.isOnline && !todo.isPending && this.session) { 
                 await window.supabaseClient.from('todos').update({ 
                     task: todo.task, 
                     description: todo.description, 
                     category: todo.category, 
                     importance: todo.importance, 
                     deadline: todo.deadline,
-                    context: todo.context // Ensure context is preserved
+                    context: todo.context
                 }).eq('id', todo.id); 
             } 
         },
@@ -434,7 +483,6 @@ window.todoApp = function() {
         },
 
         get filteredArchive() {
-            // Archive also respects context
             let items = this.archivedTodos.filter(t => (t.context || 'personal') === this.context);
             if (this.searchQuery) {
                 items = items.filter(t => t.task.toLowerCase().includes(this.searchQuery.toLowerCase()));
