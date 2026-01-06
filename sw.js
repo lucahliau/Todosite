@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'todo-shell-v10'; // Bumped version for layout fix
+const CACHE_NAME = 'todo-shell-v11'; // Bumped version to force update
 
 const STATIC_ASSETS = [
   '/',
@@ -49,7 +49,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Navigation Strategy (HTML)
+  // 1. OAUTH FIX: Bypass Service Worker for Auth Redirects
+  // This ensures Safari/Browsers handle the login code parameter via network strictly
+  if (url.searchParams.has('code') || url.searchParams.has('error') || url.hash.includes('access_token')) {
+    return; 
+  }
+
+  // 2. Navigation Strategy (HTML)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('/index.html').then((cached) => {
@@ -61,12 +67,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Ignore Supabase API
+  // 3. Ignore Supabase API
   if (url.hostname.includes('supabase.co')) {
     return; 
   }
 
-  // 3. Asset Strategy
+  // 4. Asset Strategy
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;

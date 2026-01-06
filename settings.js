@@ -40,8 +40,17 @@ window.settingsModal = function() {
         async signOut() {
             if (confirm("Are you sure you want to sign out?")) {
                 this.isOpen = false;
-                // Calls the signOut method in the parent alpine scope or direct supabase
-                await window.supabaseClient.auth.signOut();
+                try {
+                    // Calls the signOut method in the parent alpine scope or direct supabase
+                    await window.supabaseClient.auth.signOut();
+                } catch (error) {
+                    console.error("Sign out error:", error);
+                }
+                
+                // FORCE CLEAR CACHE
+                localStorage.removeItem('todo_cache');
+                
+                // Force reload to reset state
                 window.location.reload(); 
             }
         },

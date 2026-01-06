@@ -70,7 +70,9 @@ window.todoApp = function() {
                     this.initRealtime();
                     this.syncPending();
                 } else {
+                    // CLEAR DATA ON LOGOUT
                     this.todos = [];
+                    localStorage.removeItem('todo_cache');
                 }
             });
 
@@ -128,7 +130,11 @@ window.todoApp = function() {
         },
 
         async signOut() {
-            await window.supabaseClient.auth.signOut();
+            try {
+                await window.supabaseClient.auth.signOut();
+            } catch (err) {
+                console.error("Sign out error", err);
+            }
             this.todos = [];
             localStorage.removeItem('todo_cache');
         },
