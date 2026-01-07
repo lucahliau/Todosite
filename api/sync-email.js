@@ -2,13 +2,17 @@ import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-    const MODEL_NAME = "gemini-2.5-pro"; 
+    // Using 1.5 Pro for better reasoning on dates and complex emails
+    const MODEL_NAME = "gemini-1.5-pro"; 
+    
     console.log(`--- [DEBUG] Starting Email Sync (Model: ${MODEL_NAME}) ---`);
 
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
     
-    // 1. Get Token and Known IDs (Blocklist)
-    const { provider_token, known_ids = [] } = req.body;
+    // 1. Get Inputs
+    // We default to 'America/New_York' since we know you are in NYC, 
+    // but the frontend can pass a specific zone if needed.
+    const { provider_token, known_ids = [], timeZone = 'America/New_York' } = req.body;
     
     if (!provider_token) {
         return res.status(401).json({ error: 'Missing Google Access Token' });
@@ -20,57 +24,82 @@ export default async function handler(req, res) {
         const gmail = google.gmail({ version: 'v1', auth });
 
         // 2. Search Criteria
-        // We still search reasonably wide, but we filter strictly below
         const keywords = ['appointment', 'reservation', 'meeting', 'interview', 'schedule', 'deadline', 'due', 'booking', 'flight', 'reminder'];
+        // We fetch a few more messages to account for the stricter filtering we are about to do
         const query = `newer_than:7d (${keywords.join(' OR ')})`;
-
-        console.log(`--- [DEBUG] Gmail Query: ${query} ---`);
 
         const listResponse = await gmail.users.messages.list({
             userId: 'me',
             q: query,
-            maxResults: 20 // Fetch a few more since we might filter some out
+            maxResults: 20 
         });
 
         const allMessages = listResponse.data.messages || [];
-        
-        // 3. DEDUPLICATION: Filter out messages we already have
         const messages = allMessages.filter(msg => !known_ids.includes(msg.id));
         
-        console.log(`--- [DEBUG] Found ${allMessages.length} emails. New: ${messages.length} (Filtered ${allMessages.length - messages.length} duplicates) ---`);
-
         if (messages.length === 0) {
             return res.status(200).json({ tasks: [], message: 'No new actionable emails found.' });
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+        const model = genAI.getGenerativeModel({ 
+            model: MODEL_NAME,
+            generationConfig: { responseMimeType: "application/json" }
+        });
 
         const newTasks = [];
+        
+        // Helper: Get formatted current time in the user's specific timezone
+        // This anchors "today" so the LLM knows what "Next Tuesday" means.
+        const getCurrentUserDate = () => {
+            return new Date().toLocaleString('en-US', { 
+                timeZone: timeZone,
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
 
-        // 4. Process New Emails
+        // Helper: Redact sensitive data before sending to LLM
+        const redactPII = (text) => {
+            if (!text) return "";
+            // Redact Credit Card-like sequences (13-19 digits, dashes/spaces)
+            let safe = text.replace(/\b(?:\d[ -]*?){13,19}\b/g, '[REDACTED_CARD]');
+            // Redact SSN-like sequences
+            safe = safe.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[REDACTED_SSN]');
+            return safe;
+        };
+
+        // 3. Process Emails
         for (const msg of messages) {
-            console.log(`\n[DEBUG] Processing Msg ID: ${msg.id}`);
-
             try {
-                // A. Fetch full email content
-                const emailData = await gmail.users.messages.get({
-                    userId: 'me',
-                    id: msg.id,
-                    format: 'full'
-                });
-
+                const emailData = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'full' });
                 const payload = emailData.data.payload;
                 const headers = payload.headers;
-                const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
-                const dateHeader = headers.find(h => h.name === 'Date')?.value || 'Unknown Date';
-                const sender = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
-                const snippet = emailData.data.snippet || '';
-
-                // B. RECURSIVE ATTACHMENT FINDER
-                let extraContext = "";
                 
-                // Helper to flatten the multipart structure
+                // --- A. SPAM & NOISE FILTERING ---
+                const getHeader = (name) => headers.find(h => h.name === name)?.value || '';
+                
+                const precedence = getHeader('Precedence').toLowerCase();
+                const autoResponse = getHeader('X-Auto-Response-Suppress');
+                const unsubscribe = getHeader('List-Unsubscribe');
+                
+                // Skip explicit bulk/auto-generated emails immediately
+                if (precedence === 'bulk' || precedence === 'junk' || autoResponse) {
+                    console.log(`   -> Skipping Bulk/Auto: ${msg.id}`);
+                    continue;
+                }
+
+                const subject = redactPII(getHeader('Subject') || 'No Subject');
+                const dateHeader = getHeader('Date'); // This is the email's "sent" time
+                const sender = redactPII(getHeader('From') || 'Unknown');
+                const snippet = redactPII(emailData.data.snippet || '');
+
+                // --- B. ATTACHMENT PARSING (ICS/Text) ---
+                let extraContext = "";
                 const getAllParts = (parts) => {
                     let flat = [];
                     if (!parts) return flat;
@@ -82,102 +111,90 @@ export default async function handler(req, res) {
                 };
 
                 const allParts = getAllParts(payload.parts);
-                
-                // Find Calendar (.ics) or Text attachments
                 const relevantAttachments = allParts.filter(p => 
-                    (p.mimeType === 'text/calendar' || p.mimeType === 'application/ics' || p.filename?.endsWith('.ics')) ||
-                    (p.mimeType === 'text/plain' && p.filename) // Text files, but not body text
+                    p.mimeType?.includes('calendar') || 
+                    p.mimeType?.includes('ics') || 
+                    p.filename?.endsWith('.ics')
                 );
 
-                if (relevantAttachments.length > 0) {
-                    console.log(`   -> Found ${relevantAttachments.length} attachments. Parsing...`);
-                    
-                    for (const att of relevantAttachments) {
-                        if (att.body && att.body.attachmentId) {
-                            try {
-                                const attachData = await gmail.users.messages.attachments.get({
-                                    userId: 'me',
-                                    messageId: msg.id,
-                                    id: att.body.attachmentId
-                                });
-                                
-                                if (attachData.data.data) {
-                                    const decoded = Buffer.from(attachData.data.data, 'base64').toString('utf-8');
-                                    extraContext += `\n\n--- ATTACHMENT (${att.filename || 'calendar.ics'}) ---\n${decoded.substring(0, 2000)}\n--- END ATTACHMENT ---\n`;
-                                }
-                            } catch (attErr) {
-                                console.error("Failed to parse attachment", attErr);
-                            }
+                for (const att of relevantAttachments) {
+                    if (att.body?.attachmentId) {
+                        const attachData = await gmail.users.messages.attachments.get({
+                            userId: 'me', messageId: msg.id, id: att.body.attachmentId
+                        });
+                        if (attachData.data.data) {
+                            const decoded = Buffer.from(attachData.data.data, 'base64').toString('utf-8');
+                            // Redact PII in attachments too
+                            extraContext += `\n[ATTACHMENT: ${att.filename}]\n${redactPII(decoded.substring(0, 4000))}\n[END ATTACHMENT]\n`;
                         }
                     }
                 }
 
-                // C. Optimized Prompt with Attachment Awareness
+                // --- C. PROMPT ENGINEERING ---
                 const prompt = `
-                You are an expert executive assistant. Analyze this email AND its attachments to find a specific, actionable task or event.
+                You are an expert executive assistant. Analyze this email to identify **one** concrete, actionable task or event.
 
-                METADATA:
-                - Subject: "${subject}"
-                - Sender: "${sender}"
-                - Sent Date: "${dateHeader}"
-                - Snippet: "${snippet}"
+                ### CONTEXT
+                - **User's Current Time:** ${getCurrentUserDate()} (${timeZone})
+                - **Email Sent:** ${dateHeader}
+                - **Subject:** "${subject}"
+                - **Sender:** "${sender}"
+                - **Snippet:** "${snippet}"
+                - **Is Mailing List:** ${unsubscribe ? 'Yes (Be skeptical of marketing)' : 'No'}
 
-                ADDITIONAL CONTENT (Attachments/Calendar):
+                ### ATTACHMENTS (Highest Priority for Dates)
                 ${extraContext}
 
-                INSTRUCTIONS:
-                1. **Priority**: TRUST THE ATTACHMENT (ICS/Calendar) over the email body for dates/times. 
-                   - Look for 'DTSTART', 'DTEND', 'LOCATION' in the attachment text.
-                   - If the email says "Forwarded: Meeting on Jan 10" but the ICS says "Jan 12", use Jan 12.
+                ### INSTRUCTIONS
+                1. **Filter Noise**: 
+                   - IGNORE deadlines related to: Sales ("50% off ends Friday"), Promotions, Webinars, Newsletters, or generic "updates".
+                   - ONLY extract: Personal meetings, Flights, Bills due, Project deadlines, Reservations.
+                   - If the email is spam or marketing, return null.
 
-                2. **Description**: 
-                   - Create a rich summary. 
-                   - If it's a meeting, include the link/location. 
-                   - If there is a person's name or company in the sender/subject, mention them.
+                2. **Date Extraction (CRITICAL)**: 
+                   - **Source of Truth:** Use 'DTSTART'/'DTEND' in attachments if available.
+                   - **Relative Dates:** If email says "tomorrow", calculate it relative to **Email Sent Date** (not User's Current Time).
+                   - **Format:** Output "YYYY-MM-DD".
+                   - **Timezone:** Keep the "local" date of the event. Do NOT shift 7 PM Friday to Saturday UTC.
 
-                3. **Importance (1-3)**:
-                   - 3 (High): Flights, Job Interviews, Doctor, Critical Deadlines, Bills.
-                   - 2 (Medium): Work Meetings, Social Events, Reservations.
-                   - 1 (Low): Reminders, FYIs.
+                3. **Description**:
+                   - Write a rich summary.
+                   - **LINK EXTRACTION:** If there is a Zoom/Teams/Meet link or a "View Booking" URL, extract it and append to the description: " | Link: [URL]"
 
-                4. **Filtering**:
-                   - Return "null" if it is spam, a newsletter, or has no clear action.
-
-                OUTPUT JSON (No markdown):
+                ### OUTPUT JSON (Return null if no task)
                 {
                     "task": "Concise Title",
-                    "description": "Full details...",
+                    "description": "Details including time (e.g. 'at 2pm') and links.",
                     "importance": 1-3, 
-                    "deadline": "YYYY-MM-DD" (or null)
+                    "deadline": "YYYY-MM-DD" or null
                 }
                 `;
 
                 const result = await model.generateContent(prompt);
-                const response = result.response;
-                const text = response.text().replace(/```json|```/g, '').trim();
+                const responseText = result.response.text();
+                const cleanJson = responseText.replace(/```json|```/g, '').trim();
                 
-                if (text && text !== 'null') {
-                    try {
-                        const taskData = JSON.parse(text);
-                        if (taskData && taskData.task) {
-                            console.log(`   -> MATCH: [${taskData.deadline}] ${taskData.task}`);
-                            newTasks.push({
-                                ...taskData,
-                                category: 'Email', 
-                                emailId: msg.id  // Important for deduplication next time
-                            });
-                        }
-                    } catch (jsonErr) {
-                         console.error(`   -> PARSE ERROR: ${text}`);
+                if (cleanJson && cleanJson !== 'null') {
+                    const taskData = JSON.parse(cleanJson);
+                    
+                    if (taskData && taskData.task) {
+                        if (taskData.deadline === 'null') taskData.deadline = null;
+
+                        console.log(`   -> MATCH: [${taskData.deadline || 'No Date'}] ${taskData.task}`);
+                        newTasks.push({
+                            ...taskData,
+                            category: 'Email', 
+                            emailId: msg.id
+                        });
                     }
                 }
 
-            } catch (innerError) {
-                console.error(`   [DEBUG] Error processing message ${msg.id}:`, innerError.message);
+            } catch (err) {
+                console.error(`   [DEBUG] Error on email ${msg.id}:`, err.message);
+                continue;
             }
         }
 
-        console.log(`\n--- [DEBUG] Finished. Returning ${newTasks.length} tasks ---`);
         return res.status(200).json({ tasks: newTasks });
 
     } catch (error) {
