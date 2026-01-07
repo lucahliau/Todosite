@@ -42,6 +42,7 @@ window.todoApp = function() {
         loading: true,
 
         // Context & Theme State
+        // 'personal' = Light Mode, 'work' = Dark Mode
         context: localStorage.getItem('todo_context') || 'personal', 
 
         // Filter States
@@ -145,7 +146,7 @@ window.todoApp = function() {
                 console.error("Sign out error", err);
             }
             this.todos = [];
-            localStorage.clear(); // Clear all data
+            localStorage.clear(); // Clear all data (Supabase tokens + todo_cache)
         },
 
         // Switch between Personal (Light) and Work (Dark)
@@ -197,7 +198,7 @@ window.todoApp = function() {
             }
         },
 
-        // --- Gmail Sync Logic ---
+        // --- Gmail Sync Logic (Deduplication Enabled) ---
         async syncGmail() {
             if (!this.session || !this.session.provider_token) {
                 alert("Please sign in with Google to sync emails.");
@@ -207,11 +208,20 @@ window.todoApp = function() {
             this.isSyncingEmail = true;
 
             try {
+                // 1. Gather existing Email IDs from descriptions to prevent duplicates.
+                // We look for the pattern [SyncID: ...] in the description.
+                const knownIds = this.todos.map(t => {
+                    if (!t.description) return null;
+                    const match = t.description.match(/\[SyncID: (.+?)\]/);
+                    return match ? match[1] : null;
+                }).filter(Boolean);
+
                 const response = await fetch('/api/sync-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        provider_token: this.session.provider_token 
+                        provider_token: this.session.provider_token,
+                        known_ids: knownIds // Send blocklist to server
                     })
                 });
 
@@ -221,13 +231,20 @@ window.todoApp = function() {
                     let addedCount = 0;
                     
                     data.tasks.forEach(t => {
-                        const isDuplicate = this.todos.some(existing => existing.task === t.task);
+                        // Double check client side just in case
+                        const isDuplicate = this.todos.some(existing => 
+                            existing.task === t.task || 
+                            (existing.description && existing.description.includes(t.emailId))
+                        );
                         
                         if (!isDuplicate) {
+                            // Append the ID to description so it saves to Supabase without schema changes
+                            const descriptionWithId = (t.description || '') + `\n\n[SyncID: ${t.emailId}]`;
+
                             this.todos.unshift({
                                 id: 'email-' + Date.now() + Math.random(),
                                 task: t.task,
-                                description: t.description + "\n\n(Imported from Gmail)",
+                                description: descriptionWithId,
                                 category: 'Email',
                                 importance: t.importance,
                                 deadline: t.deadline,
@@ -521,7 +538,7 @@ window.todoApp = function() {
                     description: todo.description, 
                     category: todo.category, 
                     importance: todo.importance, 
-                    deadline: todo.deadline,
+                    deadline: todo.deadline, 
                     context: todo.context
                 }).eq('id', todo.id); 
             } 
