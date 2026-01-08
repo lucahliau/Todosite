@@ -2,18 +2,19 @@ import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-    // Using 2.5 Pro for state-of-the-art reasoning on dates and complex emails
-    const MODEL_NAME = "gemini-2.5-pro"; 
+    // Upgraded to Gemini 3 Pro - current flagship for complex reasoning
+    const MODEL_NAME = "gemini-3-pro"; 
     
     console.log(`--- [DEBUG] Starting Email Sync (Model: ${MODEL_NAME}) ---`);
 
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
     
     // 1. Get Inputs
+    // Defaulting to NYC timezone for accurate date extraction
     const { provider_token, known_ids = [], timeZone = 'America/New_York' } = req.body;
     
     if (!provider_token) {
-        return res.status(401).json({ error: 'Missing Google Access Token. Please sign out and sign in again.' });
+        return res.status(401).json({ error: 'Missing Google Access Token. Please sign in again.' });
     }
 
     try {
@@ -26,7 +27,6 @@ export default async function handler(req, res) {
         const query = `newer_than:7d (${keywords.join(' OR ')})`;
 
         // --- AUTH & PERMISSION CHECK ---
-        // We catch the 403 error here to provide a clear instruction to the user
         const listResponse = await gmail.users.messages.list({
             userId: 'me',
             q: query,
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
         }).catch(err => {
             if (err.code === 403) {
                 console.error("--- [DEBUG] 403 Forbidden: Missing gmail.readonly scope ---");
-                throw new Error("Insufficient Permissions: Your Google token lacks 'gmail.readonly' scope. Please Sign Out and Sign In again to refresh permissions.");
+                throw new Error("Insufficient Permissions: Please Sign Out and Sign In again to refresh permissions.");
             }
             throw err;
         });
@@ -46,15 +46,18 @@ export default async function handler(req, res) {
             return res.status(200).json({ tasks: [], message: 'No new actionable emails found.' });
         }
 
+        // 3. Initialize Gemini 3 Pro
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ 
             model: MODEL_NAME,
-            generationConfig: { responseMimeType: "application/json" }
+            generationConfig: { 
+                responseMimeType: "application/json" 
+            }
         });
 
         const newTasks = [];
         
-        // Helper: Get formatted current time in the user's specific timezone
+        // Helper: Get current time for LLM "today" context
         const getCurrentUserDate = () => {
             return new Date().toLocaleString('en-US', { 
                 timeZone: timeZone,
@@ -67,17 +70,15 @@ export default async function handler(req, res) {
             });
         };
 
-        // Helper: Redact sensitive data before sending to LLM
+        // Helper: Redact sensitive data
         const redactPII = (text) => {
             if (!text) return "";
-            // Redact Credit Card-like sequences
             let safe = text.replace(/\b(?:\d[ -]*?){13,19}\b/g, '[REDACTED_CARD]');
-            // Redact SSN-like sequences
             safe = safe.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[REDACTED_SSN]');
             return safe;
         };
 
-        // 3. Process Emails
+        // 4. Process Emails
         for (const msg of messages) {
             try {
                 const emailData = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'full' });
@@ -90,7 +91,7 @@ export default async function handler(req, res) {
                 const autoResponse = getHeader('X-Auto-Response-Suppress');
                 const unsubscribe = getHeader('List-Unsubscribe');
                 
-                // Skip bulk/auto-generated noise
+                // Noise Filtering
                 if (precedence === 'bulk' || precedence === 'junk' || autoResponse) {
                     console.log(`   -> Skipping Bulk/Auto: ${msg.id}`);
                     continue;
@@ -101,7 +102,7 @@ export default async function handler(req, res) {
                 const sender = redactPII(getHeader('From') || 'Unknown');
                 const snippet = redactPII(emailData.data.snippet || '');
 
-                // --- ATTACHMENT PARSING (ICS/Calendar) ---
+                // Attachment Extraction (ICS/Calendar)
                 let extraContext = "";
                 const getAllParts = (parts) => {
                     let flat = [];
@@ -132,9 +133,9 @@ export default async function handler(req, res) {
                     }
                 }
 
-                // --- PROMPT ENGINEERING ---
+                // AI Prompt
                 const prompt = `
-                You are an expert executive assistant. Analyze this email to identify **one** concrete, actionable task or event.
+                Expert Executive Assistant Analysis. Identify ONE concrete, actionable task or event.
 
                 ### CONTEXT
                 - **User's Current Time:** ${getCurrentUserDate()} (${timeZone})
@@ -142,34 +143,24 @@ export default async function handler(req, res) {
                 - **Subject:** "${subject}"
                 - **Sender:** "${sender}"
                 - **Snippet:** "${snippet}"
-                - **Is Mailing List:** ${unsubscribe ? 'Yes (Be skeptical of marketing)' : 'No'}
+                - **Is Mailing List:** ${unsubscribe ? 'Yes' : 'No'}
 
-                ### ATTACHMENTS (Highest Priority for Dates)
+                ### ATTACHMENTS
                 ${extraContext}
 
                 ### INSTRUCTIONS
-                1. **Filter Noise**: 
-                   - IGNORE deadlines related to: Sales, Promotions, Webinars, or generic "updates".
-                   - ONLY extract: Personal meetings, Flights, Bills due, Project deadlines, Reservations.
-                   - If the email is spam or marketing, return null.
+                1. Filter marketing noise. Extract ONLY: Personal meetings, Flights, Bills, Project deadlines, Reservations.
+                2. Use 'DTSTART' from attachments for highest date accuracy.
+                3. Calculate relative dates ("tomorrow") based on Email Sent Date.
+                4. Extract meeting links (Zoom/Meet/Teams) and append to description.
 
-                2. **Date Extraction (CRITICAL)**: 
-                   - **Source of Truth:** Use 'DTSTART'/'DTEND' in attachments if available.
-                   - **Relative Dates:** If email says "tomorrow", calculate it relative to **Email Sent Date**.
-                   - **Format:** Output "YYYY-MM-DD".
-
-                3. **Description**:
-                   - Write a rich summary.
-                   - **LINK EXTRACTION:** If there is a Zoom/Teams/Meet link or a "View Booking" URL, extract it and append: " | Link: [URL]"
-
-                ### OUTPUT JSON (Return null if no task)
+                ### OUTPUT JSON
                 {
-                    "task": "Concise Title",
+                    "task": "Title",
                     "description": "Details including time and links.",
                     "importance": 1-3, 
                     "deadline": "YYYY-MM-DD" or null
-                }
-                `;
+                }`;
 
                 const result = await model.generateContent(prompt);
                 const responseText = result.response.text();
