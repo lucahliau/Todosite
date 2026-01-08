@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const { provider_token, known_ids = [], timeZone = 'America/New_York' } = req.body;
     
     if (!provider_token) {
-        return res.status(401).json({ error: 'Missing Google Access Token' });
+        return res.status(401).json({ error: 'Missing Google Access Token. Please sign out and sign in again.' });
     }
 
     try {
@@ -28,10 +28,18 @@ export default async function handler(req, res) {
         // We fetch a few more messages to account for the stricter filtering we are about to do
         const query = `newer_than:7d (${keywords.join(' OR ')})`;
 
+        // --- AUTH CHECK ---
+        // We wrap this first call to catch specific "Insufficient Permission" errors.
         const listResponse = await gmail.users.messages.list({
             userId: 'me',
             q: query,
             maxResults: 20 
+        }).catch(err => {
+            if (err.code === 403) {
+                console.error("--- [DEBUG] 403 Forbidden: Missing Scopes ---");
+                throw new Error("Your session is missing the required Gmail permissions. Please sign out and sign back in to refresh your token.");
+            }
+            throw err;
         });
 
         const allMessages = listResponse.data.messages || [];
