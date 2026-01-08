@@ -2,8 +2,7 @@ import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-    // Upgraded to Gemini 3 Pro - current flagship for complex reasoning
-    const MODEL_NAME = "gemini-3-pro"; 
+    const MODEL_NAME = "gemini-2.5-pro"; 
     
     console.log(`--- [DEBUG] Starting Email Sync (Model: ${MODEL_NAME}) ---`);
 
